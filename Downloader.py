@@ -1,7 +1,10 @@
+import base64
 from distutils.dir_util import copy_tree
+from datetime import datetime, timezone
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import threading
 import tkinter
@@ -91,7 +94,7 @@ class Application(ttk.Frame):
         self.Artwork.photo = self.photo
         self.Artwork.pack()
         self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
-        self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", background="#1B1B1B", foreground="white")
+        self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
         self.response_status.pack(side="top", fill=tkinter.X)
         self.filler_label = ttk.Label(text="", background="#1B1B1B")
         self.filler_label.pack(side="top", fill=tkinter.X)
@@ -109,7 +112,8 @@ class Application(ttk.Frame):
         try:
             user_cfg_path = Path
             for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                user_cfg_path = path
+                if "Flight" in str(path):
+                    user_cfg_path = path
             if not user_cfg_path:
                 raise IOError
             file_data = open(user_cfg_path, 'r')
@@ -124,6 +128,7 @@ class Application(ttk.Frame):
             file_data.close()
         except IOError:
             self.destination_folder = ""
+            self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer. Could not automatically detect Community folder, please select it manually!"
             self.browse_button['text'] = "Select Community folder"
             self.browse_button.pack(side="top", pady=(20, 0))
         self.final_file_path = ""
@@ -137,6 +142,7 @@ class Application(ttk.Frame):
         if not self.change_folder or not self.destination_folder:
             self.destination_folder = filedialog.askdirectory()
         if self.destination_folder:
+            self.check_if_update_available()
             self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
             self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             msg = f'Destination folder: {self.destination_folder}'
@@ -144,6 +150,8 @@ class Application(ttk.Frame):
             self.browse_button.pack(side="top", fill=tkinter.Y)
             self.change_folder = False
         else:
+            self.filler_label['text'] = ""
+            self.filler_label['background'] = "#1B1B1B"
             self.download_dev_btn.pack_forget()
             self.download_stable_btn.pack_forget()
             msg = 'Please select an installation folder.'
@@ -156,8 +164,14 @@ class Application(ttk.Frame):
 
     def download_zip(self, specific_url: str, stable: bool = True):
         if self.destination_folder:
+            if not os.access(self.destination_folder, os.W_OK):
+                self.response_status['text'] = f"Error destination folder has no write-access!"
+                self.response_status['background'] = "red"
+                return
             response = Request.get(specific_url)
             if response.status_code == 200:
+                self.filler_label['text'] = ""
+                self.filler_label['background'] = "#1B1B1B"
                 self.browse_button.pack_forget()
                 self.download_dev_btn.pack_forget()
                 self.download_stable_btn.pack_forget()
@@ -171,7 +185,7 @@ class Application(ttk.Frame):
                     file_name = f'{download_url.split("/")[-1]}.zip'
                 threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
                 if not self.response_status['text'] and not Request.cancel_check:
-                    self.unzip_file(file_name=file_name, stable=stable)
+                    threading.Thread(target=self.unzip_file(file_name=file_name, stable=stable)).start()
                 elif Request.cancel_check:
                     self.response_status['text'] = f"Download cancelled!"
                     self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
@@ -180,7 +194,8 @@ class Application(ttk.Frame):
                     self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
                     self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             else:
-                self.response_status['text'] = f"Error when downloading, response code:{response.status_code}"
+                self.response_status['text'] = f"Error when downloading, response code: {response.status_code}"
+                self.response_status['background'] = "red"
 
     def download_stable(self):
         self.download_zip(specific_url='https://api.github.com/repos/flybywiresim/a32nx/releases/latest')
@@ -188,8 +203,51 @@ class Application(ttk.Frame):
     def download_dev(self):
         self.download_zip(specific_url='https://api.github.com/repos/flybywiresim/a32nx', stable=False)
 
+    def check_if_update_available(self):
+        try:
+            layout_path = Path(f'{self.destination_folder}\\A32NX\\layout.json')
+            if layout_path.is_file():
+                layout_data = open(layout_path, 'r').read()
+                clean_data_length = len(re.sub('\\s\\n', '\\n', layout_data))
+                current_data_timestamp = Application.convert_from(int(re.search('"date":\\s(\\d+)', layout_data).group(1)))
+                latest_release_version = Request.get('https://api.github.com/repos/flybywiresim/a32nx/releases/latest').json()
+                tag_name = latest_release_version['tag_name']
+                published_at = latest_release_version['published_at']
+                stable_len = int(Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json?ref={tag_name}').json()['size'])
+                if stable_len == clean_data_length:
+                    self.filler_label['text'] = "Current stable version is up to date!"
+                    self.filler_label['background'] = "green"
+                    return
+                elif current_data_timestamp < published_at:
+                    self.filler_label['text'] = "Stable version is out of date, please consider updating!"
+                    self.filler_label['background'] = "orange"
+                elif current_data_timestamp > published_at:
+                    dev_layout_content = Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json').json()['content'].replace('\n', '').encode()
+                    if dev_layout_content == base64.b64encode(layout_data.encode()):
+                        self.filler_label['text'] = "Dev version is up to date!"
+                        self.filler_label['background'] = "green"
+                    else:
+                        self.filler_label['text'] = "Dev version is out of date, please consider updating!"
+                        self.filler_label['background'] = "orange"
+        except KeyError:
+            self.filler_label['text'] = "Could not check for updates! Github API rate limit could be exceeded."
+            self.filler_label['background'] = "orange"
+        except AttributeError:
+            self.filler_label['text'] = "Could not check for updates! layout.json could have a wrong structure."
+            self.filler_label['background'] = "orange"
+
+    @staticmethod
+    def convert_from(windows_timestamp: int) -> str:
+        unix_epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        windows_epoch = datetime(1601, 1, 1, tzinfo=timezone.utc)
+        epoch_delta = unix_epoch - windows_epoch
+        windows_timestamp_in_seconds = windows_timestamp / 10_000_000
+        unix_timestamp = windows_timestamp_in_seconds - epoch_delta.total_seconds()
+        return datetime.utcfromtimestamp(unix_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
+
     def unzip_file(self, file_name: str, stable: bool):
         self.response_status['text'] = "Unzipping file..."
+        self.response_status.pack(side="top", fill=tkinter.X)
         try:
             archive = zipfile.ZipFile(f'{sys.prefix}/{file_name}')
             for file in archive.namelist():
@@ -198,11 +256,12 @@ class Application(ttk.Frame):
             if not stable:
                 try:
                     self.response_status['text'] = "Moving files to correct directory!"
+                    self.response_status.pack(side="top", fill=tkinter.X)
                     copy_tree(f'{self.destination_folder}/{archive.namelist()[0]}/A32NX', f'{self.destination_folder}/A32NX')
                     try:
                         shutil.rmtree(f'{self.destination_folder}/{archive.namelist()[0]}')
                     except OSError:
-                        self.response_status['background'] = "yellow"
+                        self.response_status['background'] = "orange"
                         self.response_status['text'] = "A32NX correctly installed but could not cleanup installation files!"
                 except IndexError:
                     raise zipfile.BadZipfile
