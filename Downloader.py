@@ -113,7 +113,7 @@ class Application(ttk.Frame):
         root.bind_class("TButton", "<Enter>", self.on_enter)
         root.bind_class("TButton", "<Leave>", self.on_leave)
         try:
-            user_cfg_path = Path
+            user_cfg_path = None
             try:
                 for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
                     if "Flight" in str(path) and str(path).endswith('UserCfg.opt'):
