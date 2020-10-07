@@ -2,7 +2,7 @@
 
 ## About
 
-Simple installer made in python with tkinter for the [A32NX](https://github.com/flybywiresim/a32nx) mod. 
+A simple installer made in Python with tkinter for the [A32NX](https://github.com/flybywiresim/a32nx) mod. 
 
 ## Requirements (Only to regenerate the exe file)
 

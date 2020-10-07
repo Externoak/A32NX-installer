@@ -1,11 +1,8 @@
-import base64
-from distutils.dir_util import copy_tree
 from datetime import datetime, timezone
 import math
 import os
 from pathlib import Path
 import re
-import shutil
 import threading
 import tkinter
 from PIL.ImageTk import PhotoImage
@@ -21,6 +18,7 @@ import json
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
 asset_json_name = 'asset.json'
+
 
 class Request:
 
@@ -97,11 +95,12 @@ class Application(ttk.Frame):
         self.Artwork['image'] = self.photo
         self.Artwork.photo = self.photo
         self.Artwork.pack()
-        self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
         self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
         self.response_status.pack(side="top", fill=tkinter.X)
         self.filler_label = ttk.Label(text="", background="#1B1B1B")
         self.filler_label.pack(side="top", fill=tkinter.X)
+        self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
+        self.destination_folder_msg.pack(side="top", fill=tkinter.X)
         self.progress_bar = ttk.Progressbar(self, style='text.Horizontal.TProgressbar', orient="horizontal", length=200, mode="determinate")
         self.download_dev_btn = ttk.Button(self, text="Development version", width=20, style='W1.TButton', command=self.download_dev)
         self.download_stable_btn = ttk.Button(self, width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
@@ -115,9 +114,14 @@ class Application(ttk.Frame):
         root.bind_class("TButton", "<Leave>", self.on_leave)
         try:
             user_cfg_path = Path
-            for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                if "Flight" in str(path):
-                    user_cfg_path = path
+            try:
+                for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
+                    print(path)
+                    if "Flight" in str(path) and str(path).endswith('UserCfg.opt'):
+                        user_cfg_path = path
+                        break
+            except FileNotFoundError:
+                pass
             if not user_cfg_path:
                 raise IOError
             file_data = open(user_cfg_path, 'r')
@@ -154,7 +158,7 @@ class Application(ttk.Frame):
             self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             msg = f'Destination folder: {self.destination_folder}'
             self.browse_button['text'] = "Change destination folder"
-            self.browse_button.pack(side="top", fill=tkinter.Y)
+            self.browse_button.pack(side="top", pady=(20, 0))
             self.change_folder = False
         else:
             self.filler_label['text'] = ""
@@ -171,10 +175,6 @@ class Application(ttk.Frame):
 
     def download_zip(self, specific_url: str, stable: bool = True):
         if self.destination_folder:
-            if not os.access(self.destination_folder, os.W_OK):
-                self.response_status['text'] = f"Error destination folder has no write-access!"
-                self.response_status['background'] = "red"
-                return
             response = Request.get(specific_url)
             if response.status_code == 200:
                 self.filler_label['text'] = ""
@@ -188,7 +188,8 @@ class Application(ttk.Frame):
                 file_name = download_url.split("/")[-1]
                 threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
                 if not self.response_status['text'] and not Request.cancel_check:
-                    threading.Thread(target=self.unzip_file(file_name=file_name, stable=stable)).start()
+                    self.response_status['text'] = "Unzipping file..."
+                    threading.Thread(target=self.unzip_file(file_name=file_name)).start()
                 elif Request.cancel_check:
                     self.response_status['text'] = f"Download cancelled!"
                     self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
@@ -218,7 +219,7 @@ class Application(ttk.Frame):
                 stable_published_at = latest_release_version['published_at']
                 stable_len = int(Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json?ref={tag_name}').json()['size'])
                 if stable_len == clean_data_length:
-                    self.filler_label['text'] = "Current stable version is up to date!"
+                    self.filler_label['text'] = "Stable version is up to date!"
                     self.filler_label['background'] = "green"
                     return
                 elif current_data_timestamp < stable_published_at:
@@ -257,9 +258,7 @@ class Application(ttk.Frame):
         unix_timestamp = windows_timestamp_in_seconds - epoch_delta.total_seconds()
         return datetime.utcfromtimestamp(unix_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    def unzip_file(self, file_name: str, stable: bool):
-        self.response_status['text'] = "Unzipping file..."
-        self.response_status.pack(side="top", fill=tkinter.X)
+    def unzip_file(self, file_name: str):
         try:
             archive = zipfile.ZipFile(f'{sys.prefix}/{file_name}')
             for file in archive.namelist():
