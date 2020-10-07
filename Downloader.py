@@ -16,7 +16,11 @@ import requests
 import tqdm
 import zipfile
 import sys
+import json
 
+master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
+latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
+asset_json_name = 'asset.json'
 
 class Request:
 
@@ -136,6 +140,9 @@ class Application(ttk.Frame):
         master.title('FlyByWire Downloader')
         self.pack(after=self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184)))
 
+    def get_asset_json_path(self):
+        return Path(f'{self.destination_folder}\\A32NX\\{asset_json_name}')
+
     def browse_search(self):
         self.response_status['background'] = ""
         self.response_status.pack(side="top", fill=tkinter.X)
@@ -177,12 +184,8 @@ class Application(ttk.Frame):
                 self.download_stable_btn.pack_forget()
                 self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
                 self.exit.pack_forget()
-                if stable:
-                    download_url = response.json()["assets"][0]["browser_download_url"]
-                    file_name = download_url.split("/")[-1]
-                else:
-                    download_url = f'https://api.github.com/repos/flybywiresim/a32nx/zipball/{response.json()["default_branch"]}'
-                    file_name = f'{download_url.split("/")[-1]}.zip'
+                download_url = response.json()["assets"][0]["browser_download_url"]
+                file_name = download_url.split("/")[-1]
                 threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
                 if not self.response_status['text'] and not Request.cancel_check:
                     threading.Thread(target=self.unzip_file(file_name=file_name, stable=stable)).start()
@@ -198,10 +201,10 @@ class Application(ttk.Frame):
                 self.response_status['background'] = "red"
 
     def download_stable(self):
-        self.download_zip(specific_url='https://api.github.com/repos/flybywiresim/a32nx/releases/latest')
+        self.download_zip(specific_url=latest_release_url)
 
     def download_dev(self):
-        self.download_zip(specific_url='https://api.github.com/repos/flybywiresim/a32nx', stable=False)
+        self.download_zip(specific_url=master_prerelease_url, stable=False)
 
     def check_if_update_available(self):
         try:
@@ -210,25 +213,34 @@ class Application(ttk.Frame):
                 layout_data = open(layout_path, 'r').read()
                 clean_data_length = len(re.sub('\\s\\n', '\\n', layout_data))
                 current_data_timestamp = Application.convert_from(int(re.search('"date":\\s(\\d+)', layout_data).group(1)))
-                latest_release_version = Request.get('https://api.github.com/repos/flybywiresim/a32nx/releases/latest').json()
+                latest_release_version = Request.get(latest_release_url).json()
                 tag_name = latest_release_version['tag_name']
-                published_at = latest_release_version['published_at']
+                stable_published_at = latest_release_version['published_at']
                 stable_len = int(Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json?ref={tag_name}').json()['size'])
                 if stable_len == clean_data_length:
                     self.filler_label['text'] = "Current stable version is up to date!"
                     self.filler_label['background'] = "green"
                     return
-                elif current_data_timestamp < published_at:
+                elif current_data_timestamp < stable_published_at:
                     self.filler_label['text'] = "Stable version is out of date, please consider updating!"
                     self.filler_label['background'] = "orange"
-                elif current_data_timestamp > published_at:
-                    dev_layout_content = Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json').json()['content'].replace('\n', '').encode()
-                    if dev_layout_content == base64.b64encode(layout_data.encode()):
-                        self.filler_label['text'] = "Dev version is up to date!"
-                        self.filler_label['background'] = "green"
+                elif current_data_timestamp > stable_published_at:
+                    if self.get_asset_json_path().is_file():
+                        with open(self.get_asset_json_path()) as file:
+                            asset_data = json.load(file)
+                            local_asset_id = asset_data['id']
+                            latest_master_prerelease_info = Request.get(master_prerelease_url).json()
+                            latest_master_asset_id = latest_master_prerelease_info['assets'][0]['id']
+                            if local_asset_id == latest_master_asset_id:
+                                self.filler_label['text'] = "Dev version is up to date!"
+                                self.filler_label['background'] = "green"
+                            else:
+                                self.filler_label['text'] = "Dev version is out of date, please consider updating!"
+                                self.filler_label['background'] = "orange"
                     else:
                         self.filler_label['text'] = "Dev version is out of date, please consider updating!"
                         self.filler_label['background'] = "orange"
+
         except KeyError:
             self.filler_label['text'] = "Could not check for updates! Github API rate limit could be exceeded."
             self.filler_label['background'] = "orange"
@@ -253,21 +265,12 @@ class Application(ttk.Frame):
             for file in archive.namelist():
                 if not os.path.isdir(file):
                     archive.extract(file, path=self.destination_folder)
-            if not stable:
-                try:
-                    self.response_status['text'] = "Moving files to correct directory!"
-                    self.response_status.pack(side="top", fill=tkinter.X)
-                    copy_tree(f'{self.destination_folder}/{archive.namelist()[0]}/A32NX', f'{self.destination_folder}/A32NX')
-                    try:
-                        shutil.rmtree(f'{self.destination_folder}/{archive.namelist()[0]}')
-                    except OSError:
-                        self.response_status['background'] = "orange"
-                        self.response_status['text'] = "A32NX correctly installed but could not cleanup installation files!"
-                except IndexError:
-                    raise zipfile.BadZipfile
-                except PermissionError:
-                    self.response_status['text'] = "Permission Denied when unzipping, please try again."
             archive.close()
+            latest_master_prerelease_info = Request.get(master_prerelease_url).json()
+            latest_master_asset = latest_master_prerelease_info['assets'][0]
+            with open(self.get_asset_json_path(), 'w', encoding='utf-8') as f:
+                # Store asset.json in A32NX folder so we can check it later to see if it is still up to date
+                json.dump(latest_master_asset, f, ensure_ascii=False, indent=4)
             self.response_status['background'] = "green"
             self.response_status['text'] = "A32NX correctly installed, everything should be good to go!"
         except (zipfile.BadZipfile, OSError, KeyError):
