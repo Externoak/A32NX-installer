@@ -229,8 +229,7 @@ class Application(ttk.Frame):
                         with open(self.get_asset_json_path()) as file:
                             asset_data = json.load(file)
                             local_asset_id = asset_data['id']
-                            latest_master_prerelease_info = Request.get(master_prerelease_url).json()
-                            latest_master_asset_id = latest_master_prerelease_info['assets'][0]['id']
+                            latest_master_asset_id = Request.get(master_prerelease_url).json()['assets'][0]['id']
                             if local_asset_id == latest_master_asset_id:
                                 self.filler_label['text'] = "Dev version is up to date!"
                                 self.filler_label['background'] = "green"
@@ -264,8 +263,7 @@ class Application(ttk.Frame):
                 if not os.path.isdir(file):
                     archive.extract(file, path=self.destination_folder)
             archive.close()
-            latest_master_prerelease_info = Request.get(master_prerelease_url).json()
-            latest_master_asset = latest_master_prerelease_info['assets'][0]
+            latest_master_asset = Request.get(master_prerelease_url).json()['assets'][0]
             with open(self.get_asset_json_path(), 'w', encoding='utf-8') as f:
                 # Store asset.json in A32NX folder so we can check it later to see if it is still up to date
                 json.dump(latest_master_asset, f, ensure_ascii=False, indent=4)
