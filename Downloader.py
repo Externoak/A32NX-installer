@@ -116,7 +116,6 @@ class Application(ttk.Frame):
             user_cfg_path = Path
             try:
                 for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                    print(path)
                     if "Flight" in str(path) and str(path).endswith('UserCfg.opt'):
                         user_cfg_path = path
                         break
