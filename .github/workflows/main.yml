@@ -43,8 +43,14 @@ jobs:
       run: |
         pyinstaller Downloader.spec
         Compress-Archive -Path dist\* -DestinationPath A32NX_Downloader.zip
+    - name: Build and publish
+      env:
+        VIRUS_TOTAL_API_KEY: ${{ secrets.VIRUS_TOTAL_API_KEY }}
+    - name: Check AV status
+      run: |
+        python CheckAVStatus.py
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: A32NX_Downloader.zip
+        name: A32NX_Downloader
         path: A32NX_Downloader.zip
