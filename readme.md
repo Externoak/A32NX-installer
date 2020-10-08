@@ -16,6 +16,21 @@ Pyinstaller 4.0
 
 `pip install pyinstaller`
 
+However, it is better to install PyInstaller from source after [building the bootloader yourself](https://pyinstaller.readthedocs.io/en/stable/bootloader-building.html). This prevents false positives as the bootloader provided by default is probably flagged by some antivirus software.
+
+To do this first clone the PyInstaller repo, generate the bootloader and install PyInstaller manually:
+
+```sh
+git clone git@github.com:pyinstaller/pyinstaller.git
+cd pyinstaller
+cd bootloader
+python ./waf all
+cd ..
+python setup.py install
+```
+
+
+
 ## Install dependencies
 
 `python -m pip install --upgrade Pillow`
@@ -25,6 +40,10 @@ Pyinstaller 4.0
 `python -m pip install --upgrade requests`
 
 `python -m pip install --upgrade tqdm`
+
+Or use the `requirements.txt` file to install everything at once
+
+`python -m pip install --upgrade -r requirements.txt`
 
 ## How to generate exe file
 

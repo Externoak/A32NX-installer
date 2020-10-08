@@ -1,0 +1,4 @@
+Pillow
+hurry.filesize
+requests
+tqdm
