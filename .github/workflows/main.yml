@@ -51,5 +51,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: A32NX_Downloader
-        path: A32NX_Downloader.zip
+        name: A32NX_Downloader.zip
+        path: dist/A32NX_Downloader.exe
