@@ -45,6 +45,6 @@ jobs:
         Compress-Archive -Path dist\* -DestinationPath A32NX_Downloader.zip
     - name: Upload artifact
       uses: actions/upload-artifact@v2
-        with:
-          name: A32NX_Downloader.zip
-          path: A32NX_Downloader.zip
+      with:
+        name: A32NX_Downloader.zip
+        path: A32NX_Downloader.zip
