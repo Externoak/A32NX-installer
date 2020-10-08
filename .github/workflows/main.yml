@@ -40,9 +40,9 @@ jobs:
         pip install --upgrade setuptools
         pip install -r requirements.txt
     - name: Build executable
-        run: |
-          pyinstaller Downloader.spec
-          Compress-Archive -Path dist\* -DestinationPath A32NX_Downloader.zip
+      run: |
+        pyinstaller Downloader.spec
+        Compress-Archive -Path dist\* -DestinationPath A32NX_Downloader.zip
     - name: Upload artifact
       uses: actions/upload-artifact@v2
         with:
