@@ -1,7 +1,13 @@
 name: Build
 
-# Trigger on any push
-on: [push]
+# Trigger on any push/pull request to master
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
