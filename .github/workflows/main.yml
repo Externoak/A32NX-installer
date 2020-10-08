@@ -1,15 +1,14 @@
 name: Build
 
+# Trigger on any push
 on: [push]
 
 jobs:
   build:
-
-    runs-on: windows-latest
+    runs-on: windows-latest # Must be windows as we only target windows machines
     strategy:
       matrix:
-        python-version: [3.8]
-
+        python-version: [3.8] # Can be expanded to multiple Python versions
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
