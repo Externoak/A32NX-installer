@@ -4,6 +4,12 @@
 
 A simple installer made in Python with tkinter for the [A32NX](https://github.com/flybywiresim/a32nx) mod. 
 
+This installer should automatically detect your MSFS Community folder, download and install the A32NX mod all with the click of a button. It will also check if the current version you have installed is up to date, either stable or development version.
+
+## Download
+
+Click here to download the latest stable version: [Download](https://github.com/Externoak/A32NX-installer/releases/latest/download/A32NX_Downloader.zip)
+
 ## Requirements (Only to regenerate the exe file)
 
 Python 3.8.x (3.8.2 - version used by [@Externoak](https://github.com/Externoak))
