@@ -26,6 +26,10 @@ Pyinstaller 4.0
 
 `python -m pip install --upgrade tqdm`
 
+Or use the `requirements.txt` file to install everything at once
+
+`python -m pip install --upgrade -r requirements.txt`
+
 ## How to generate exe file
 
 `pyinstaller Downloader.spec`

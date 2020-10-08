@@ -1,0 +1,5 @@
+pyinstaller
+Pillow
+hurry.filesize
+requests
+tqdm
