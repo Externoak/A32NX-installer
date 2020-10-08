@@ -14,8 +14,6 @@ jobs:
       matrix:
         python-version: [3.8] # For this workflow this should remain a single version as we only want to upload one executable
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -26,6 +24,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade setuptools
           pip install -r requirements.txt
+      - name: Checkout PyInstaller
+        uses: actions/checkout@v2
+        with:
+          repository: pyinstaller/pyinstaller
+          ref: master
+      - name: Install PyInstaller from source with generated bootloader # This is needed to prevent antivirus false positive: https://stackoverflow.com/a/52054580
+        run: |
+          cd bootloader
+          python ./waf all
+          cd ..
+          python setup.py install
+      - name: Checkout AN32X_Installer code
+        uses: actions/checkout@v2
       - name: Build executable
         run: |
           pyinstaller Downloader.spec
