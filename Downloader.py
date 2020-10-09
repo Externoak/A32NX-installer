@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import threading
 import tkinter
+import webbrowser
 from PIL.ImageTk import PhotoImage
 from hurry.filesize import size
 from tkinter.ttk import *
@@ -15,6 +16,8 @@ import zipfile
 import sys
 import json
 
+current_version = 'v0.4'
+installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/releases/latest'
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
 asset_json_name = 'asset.json'
@@ -83,6 +86,10 @@ class Request:
     def update_cancel():
         Request.cancel_check = True
 
+    @staticmethod
+    def open_installer_release_page_browser():
+        webbrowser.open(url='https://github.com/Externoak/A32NX-installer/releases/latest')
+
 
 class Application(ttk.Frame):
 
@@ -97,6 +104,8 @@ class Application(ttk.Frame):
         self.Artwork.pack()
         self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
         self.response_status.pack(side="top", fill=tkinter.X)
+        self.update_installer_label = ttk.Label(text="", background="#1B1B1B")
+        self.check_installer_update()
         self.filler_label = ttk.Label(text="", background="#1B1B1B")
         self.filler_label.pack(side="top", fill=tkinter.X)
         self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
@@ -140,7 +149,7 @@ class Application(ttk.Frame):
             self.browse_button.pack(side="top", pady=(20, 0))
         self.final_file_path = ""
         self.master = master
-        master.title('FlyByWire Downloader')
+        master.title(f'FlyByWire Downloader {current_version}')
         self.pack(after=self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184)))
 
     def get_asset_json_path(self):
@@ -205,6 +214,18 @@ class Application(ttk.Frame):
 
     def download_dev(self):
         self.download_zip(specific_url=master_prerelease_url, stable=False)
+
+    def check_installer_update(self):
+        try:
+            latest_installer_version = Request.get(installer_release_url).json()['tag_name']
+            if latest_installer_version != current_version:
+                self.update_installer_label['text'] = f"Please update installer, new version {latest_installer_version} available!"
+                self.update_installer_label['background'] = "orange"
+                self.update_installer_label.pack(side="top", fill=tkinter.X)
+                browser_update_button = ttk.Button(self, text="Open new installer release page", style='W6.TButton', command=Request.open_installer_release_page_browser)
+                browser_update_button.pack()
+        except KeyError:
+            pass
 
     def check_if_update_available(self):
         try:
@@ -297,6 +318,7 @@ if __name__ == '__main__':
     ttk.Style().configure('W3.TButton', background="#545454")
     ttk.Style().configure('W4.TButton', background="#545454")
     ttk.Style().configure('W5.TButton', background="#545454")
+    ttk.Style().configure('W6.TButton', background="#00C2CB")
     style.layout('text.Horizontal.TProgressbar',
                  [('Horizontal.Progressbar.trough',
                    {'children': [('Horizontal.Progressbar.pbar',
