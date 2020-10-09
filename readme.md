@@ -1,6 +1,6 @@
 # Downloader & Installer for A32NX
 
-[![GitHub latest release version](https://img.shields.io/github/v/release/Externoak/A32NX-installer.svg?style=plastic)](https://github.com/Externoak/A32NX-installerreleases/latest)
+[![GitHub latest release version](https://img.shields.io/github/v/release/Externoak/A32NX-installer.svg?style=plastic)](https://github.com/Externoak/A32NX-installer/releases/latest)
 [![Github All Releases download count](https://img.shields.io/github/downloads/Externoak/A32NX-installer/total.svg?style=plastic)](https://github.com/Externoak/A32NX-installer/releases/latest)
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Externoak/A32NX-installer/Build?style=plastic)](https://github.com/Externoak/A32NX-installer/actions)
 
