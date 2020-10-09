@@ -22,12 +22,13 @@ if post_response.status_code == 200:
             time.sleep(30)
             try:
                 result_params = {'apikey': api_key, 'resource': data['resource']}
-                result_response = requests.get(url_result, params=result_params)
-                print(f'Scan finished total positives {result_response.json()["positives"]}')
-                if 2 >= result_response.json()['positives']:
+                result_response = requests.get(url_result, params=result_params).json()
+                print(f'Scan finished total positives {result_response["positives"]}')
+                print(f'Scan URL {result_response["permalink"]}')
+                if 2 >= result_response['positives']:
                     print('Accepted exe, within acceptable parameters')
                     sys.exit(0)
-                elif result_response.json()['positives'] > 2:
+                elif result_response['positives'] > 2:
                     print('Denied exe, NOT within acceptable parameters! Please verify')
                     sys.exit(1)
             except KeyError:
