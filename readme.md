@@ -1,5 +1,9 @@
 # Downloader & Installer for A32NX
 
+[![GitHub latest release version](https://img.shields.io/github/v/release/Externoak/A32NX-installer.svg?style=plastic)](https://github.com/Externoak/A32NX-installerreleases/latest)
+[![Github All Releases download count](https://img.shields.io/github/downloads/Externoak/A32NX-installer/total.svg?style=plastic)](https://github.com/Externoak/A32NX-installer/releases/latest)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Externoak/A32NX-installer/Build?style=plastic)](https://github.com/Externoak/A32NX-installer/actions)
+
 ## About
 
 A simple installer made in Python with tkinter for the [A32NX](https://github.com/flybywiresim/a32nx) mod. 
