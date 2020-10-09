@@ -15,18 +15,21 @@ if post_response.status_code == 200:
     print('Scan started!')
     data = post_response.json()
     if data['response_code'] == 1:
-        print('Waiting 120 seconds for scan to finish!')
-        try:
-            time.sleep(120)
-            result_params = {'apikey': api_key, 'resource': data['resource']}
-            result_response = requests.get(url_result, params=result_params)
-            print(f'Scan finished total positives {result_response.json()["positives"]}')
-            if 2 >= result_response.json()['positives']:
-                print('Accepted exe, within acceptable parameters')
-                sys.exit(0)
-        except KeyError:
-            print('Could not verify exe! Please run again or manually check the artefact.')
-            sys.exit(1)
-
+        timeout = time.time() + 60 * 5
+        while True:
+            if time.time() > timeout:
+                break
+            time.sleep(30)
+            try:
+                result_params = {'apikey': api_key, 'resource': data['resource']}
+                result_response = requests.get(url_result, params=result_params)
+                print(f'Scan finished total positives {result_response.json()["positives"]}')
+                if 2 >= result_response.json()['positives']:
+                    print('Accepted exe, within acceptable parameters')
+                    sys.exit(0)
+            except KeyError:
+                pass
+        print('Could not verify exe! Please run again or manually check the artefact.')
+        sys.exit(1)
 print('Denied exe, NOT within acceptable parameters! Please verify')
 sys.exit(1)
