@@ -125,7 +125,8 @@ class Application(ttk.Frame):
             user_cfg_path = None
             try:
                 for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                    if "Flight" in str(path) and str(path.resolve()).endswith('UserCfg.opt'):
+                    clean_path = path.resolve()
+                    if "Flight" in str(clean_path) and str(clean_path).endswith('UserCfg.opt'):
                         user_cfg_path = path
                         break
             except FileNotFoundError:
