@@ -105,7 +105,7 @@ class Application(ttk.Frame):
         self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
         self.response_status.pack(side="top", fill=tkinter.X)
         self.update_installer_label = ttk.Label(text="", background="#1B1B1B")
-        self.check_installer_update()
+        threading.Thread(target=self.check_installer_update()).start()
         self.filler_label = ttk.Label(text="", background="#1B1B1B")
         self.filler_label.pack(side="top", fill=tkinter.X)
         self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
@@ -123,14 +123,21 @@ class Application(ttk.Frame):
         root.bind_class("TButton", "<Leave>", self.on_leave)
         try:
             user_cfg_path = None
-            try:
-                for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                    clean_path = path.resolve()
-                    if "Flight" in str(clean_path) and str(clean_path).endswith('UserCfg.opt'):
-                        user_cfg_path = path
-                        break
-            except FileNotFoundError:
-                pass
+            normal_steam_user_cfg_location = Path(f'{os.environ["APPDATA"]}\\Microsoft Flight Simulator\\UserCfg.opt')
+            normal_msfs_store_user_cfg_location = Path(f'{os.environ["LOCALAPPDATA"]}\\Packages\\Microsoft.FlightSimulator_8wekyb3d8bbwe\\LocalCache\\UserCfg.opt')
+            if normal_steam_user_cfg_location.is_file():
+                user_cfg_path = normal_steam_user_cfg_location
+            elif normal_msfs_store_user_cfg_location.is_file():
+                user_cfg_path = normal_msfs_store_user_cfg_location
+            else:
+                try:
+                    for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
+                        clean_path = path.resolve()
+                        if "Flight" in str(clean_path) and str(clean_path).endswith('UserCfg.opt'):
+                            user_cfg_path = path
+                            break
+                except FileNotFoundError:
+                    pass
             if not user_cfg_path:
                 raise IOError
             file_data = open(user_cfg_path, 'r')
@@ -162,7 +169,7 @@ class Application(ttk.Frame):
         if not self.change_folder or not self.destination_folder:
             self.destination_folder = filedialog.askdirectory()
         if self.destination_folder:
-            self.check_if_update_available()
+            threading.Thread(target=self.check_if_update_available()).start()
             self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
             self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             msg = f'Destination folder: {self.destination_folder}'
