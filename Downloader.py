@@ -15,7 +15,7 @@ import zipfile
 import sys
 import json
 
-current_version = 'v0.4.1'
+current_version = 'v0.5'
 installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/releases/latest'
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
