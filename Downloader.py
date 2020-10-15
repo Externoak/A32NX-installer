@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 import math
 import os
 from pathlib import Path
-import re
 import threading
 import tkinter
 import webbrowser
@@ -39,7 +38,7 @@ class Request:
             download_message = f"Downloading stable version..."
         else:
             download_message = f"Downloading development version..."
-        chunk_size = 16384
+        chunk_size = 131072
         req = requests.get(url, stream=True, allow_redirects=False, headers={'Accept-Encoding': None})
         if req.status_code == 200:
             try:
@@ -73,13 +72,15 @@ class Request:
                         if Request.cancel_check:
                             fp.close()
                             break
-                response_status['text'] = ""
+            except PermissionError:
+                response_status['text'] = f"Error when downloading, permission denied. Please try and run as admin."
+                response_status['background'] = "red"
+            response_status['text'] = ""
         elif req.status_code == 302:
             Request.download_file(url=req.headers['location'], file_name=file_name, progress_bar=progress_bar, response_status=response_status, stable=stable)
         else:
             response_status['text'] = f"Error when downloading, response code:{req.status_code}"
             response_status['background'] = "red"
-        response_status['text'] = ""
         progress_bar.pack_forget()
 
     @staticmethod
@@ -205,7 +206,7 @@ class Application(ttk.Frame):
                 threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
                 if not self.response_status['text'] and not Request.cancel_check:
                     self.response_status['text'] = "Unzipping file..."
-                    threading.Thread(target=self.unzip_file(file_name=file_name)).start()
+                    threading.Thread(target=self.unzip_file(file_name=file_name, stable=stable)).start()
                 elif Request.cancel_check:
                     self.response_status['text'] = f"Download cancelled!"
                     self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
@@ -237,43 +238,35 @@ class Application(ttk.Frame):
 
     def check_if_update_available(self):
         try:
-            layout_path = Path(f'{self.destination_folder}\\A32NX\\layout.json')
-            if layout_path.is_file():
-                layout_data = open(layout_path, 'r').read()
-                clean_data_length = len(re.sub('\\s\\n', '\\n', layout_data))
-                current_data_timestamp = Application.convert_from(int(re.search('"date":\\s(\\d+)', layout_data).group(1)))
-                latest_release_version = Request.get(latest_release_url).json()
-                tag_name = latest_release_version['tag_name']
-                stable_published_at = latest_release_version['published_at']
-                stable_len = int(Request.get(f'https://api.github.com/repos/flybywiresim/a32nx/contents/A32NX/layout.json?ref={tag_name}').json()['size'])
-                if stable_len == clean_data_length:
-                    self.filler_label['text'] = "Stable version is up to date!"
-                    self.filler_label['background'] = "green"
-                    return
-                elif current_data_timestamp < stable_published_at:
-                    self.filler_label['text'] = "Stable version is out of date, please consider updating!"
+            manifest_path = Path(f'{self.destination_folder}\\A32NX\\manifest.json')
+            if manifest_path.is_file():
+                manifest_file = open(manifest_path, 'r')
+                manifest_version = json.load(manifest_file)["package_version"]
+                latest_release_version = Request.get(latest_release_url).json()['tag_name'].strip("v")
+                if manifest_version == latest_release_version and self.get_asset_json_path().is_file():
+                    with open(self.get_asset_json_path()) as file:
+                        asset_data = json.load(file)
+                        if 'stable' in asset_data.keys():
+                            self.filler_label['text'] = "Stable version is up to date!"
+                            self.filler_label['background'] = "green"
+                            return
+                        local_asset_id = asset_data['id']
+                        latest_master_asset_id = Request.get(master_prerelease_url).json()['assets'][0]['id']
+                        if local_asset_id == latest_master_asset_id:
+                            self.filler_label['text'] = "Dev version is up to date!"
+                            self.filler_label['background'] = "green"
+                        else:
+                            self.filler_label['text'] = "Dev version is out of date, please consider updating!"
+                            self.filler_label['background'] = "orange"
+                else:
+                    self.filler_label['text'] = "A32NX version is out of date, please consider updating!"
                     self.filler_label['background'] = "orange"
-                elif current_data_timestamp > stable_published_at:
-                    if self.get_asset_json_path().is_file():
-                        with open(self.get_asset_json_path()) as file:
-                            asset_data = json.load(file)
-                            local_asset_id = asset_data['id']
-                            latest_master_asset_id = Request.get(master_prerelease_url).json()['assets'][0]['id']
-                            if local_asset_id == latest_master_asset_id:
-                                self.filler_label['text'] = "Dev version is up to date!"
-                                self.filler_label['background'] = "green"
-                            else:
-                                self.filler_label['text'] = "Dev version is out of date, please consider updating!"
-                                self.filler_label['background'] = "orange"
-                    else:
-                        self.filler_label['text'] = "Dev version is out of date, please consider updating!"
-                        self.filler_label['background'] = "orange"
 
         except KeyError:
             self.filler_label['text'] = "Could not check for updates! Github API rate limit could be exceeded."
             self.filler_label['background'] = "orange"
         except AttributeError:
-            self.filler_label['text'] = "Could not check for updates! layout.json could have a wrong structure."
+            self.filler_label['text'] = "Could not check for updates, first time installing?."
             self.filler_label['background'] = "orange"
 
     @staticmethod
@@ -285,14 +278,17 @@ class Application(ttk.Frame):
         unix_timestamp = windows_timestamp_in_seconds - epoch_delta.total_seconds()
         return datetime.utcfromtimestamp(unix_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    def unzip_file(self, file_name: str):
+    def unzip_file(self, file_name: str, stable: bool):
         try:
             archive = zipfile.ZipFile(f'{sys.prefix}/{file_name}')
             for file in archive.namelist():
                 if not os.path.isdir(file):
                     archive.extract(file, path=self.destination_folder)
             archive.close()
-            latest_master_asset = Request.get(master_prerelease_url).json()['assets'][0]
+            if stable:
+                latest_master_asset = {'stable': 'True'}
+            else:
+                latest_master_asset = Request.get(master_prerelease_url).json()['assets'][0]
             with open(self.get_asset_json_path(), 'w', encoding='utf-8') as f:
                 # Store asset.json in A32NX folder so we can check it later to see if it is still up to date
                 json.dump(latest_master_asset, f, ensure_ascii=False, indent=4)
