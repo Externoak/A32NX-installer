@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import math
 import os
 from pathlib import Path
 import threading
@@ -55,9 +54,9 @@ class Request:
                     for chunk in tqdm.tqdm(req.iter_content(chunk_size=chunk_size), total=num_bars, unit='B', desc=f'{sys.prefix}/{file_name}', disable=True):
                         fp.write(chunk)
                         dl += len(chunk)
-                        response_status['text'] = f"{download_message} {math.ceil(dl // (time.perf_counter() - start) / 1600000)} MB/s"
+                        response_status['text'] = f"{download_message} {round(dl // (time.perf_counter() - start) / 1600000, 3)} MB/s"
                         pbar_percentage.update(len(chunk))
-                        current_percentage = math.ceil(float(str(pbar_percentage)))
+                        current_percentage = round(float(str(pbar_percentage)))
                         progress_bar['value'] = current_percentage
                         style.configure('text.Horizontal.TProgressbar', text=f'{current_percentage} %')
                         progress_bar.update()
