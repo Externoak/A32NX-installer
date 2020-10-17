@@ -3,6 +3,7 @@ import math
 import os
 from pathlib import Path
 import threading
+import time
 import tkinter
 import webbrowser
 from PIL.ImageTk import PhotoImage
@@ -15,7 +16,7 @@ import zipfile
 import sys
 import json
 
-current_version = 'v0.5'
+current_version = 'v0.5.1'
 installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/releases/latest'
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
@@ -47,10 +48,14 @@ class Request:
                 file_size = int(req.headers['Content-Length'])
                 num_bars = int(file_size / chunk_size)
                 pbar_percentage = tqdm.tqdm(total=int(file_size), bar_format='{percentage}')
+                start = time.perf_counter()
+                dl = 0
                 with open(f'{sys.prefix}/{file_name}', 'wb') as fp:
                     response_status['text'] = download_message
                     for chunk in tqdm.tqdm(req.iter_content(chunk_size=chunk_size), total=num_bars, unit='B', desc=f'{sys.prefix}/{file_name}', disable=True):
                         fp.write(chunk)
+                        dl += len(chunk)
+                        response_status['text'] = f"{download_message} {math.ceil(dl // (time.perf_counter() - start) / 1600000)} MB/s"
                         pbar_percentage.update(len(chunk))
                         current_percentage = math.ceil(float(str(pbar_percentage)))
                         progress_bar['value'] = current_percentage
@@ -60,6 +65,7 @@ class Request:
                             fp.close()
                             break
                 progress_bar.pack_forget()
+                response_status['text'] = ""
             except KeyError:
                 progress_bar.pack_forget()
                 total_chunk_downloaded = 0
@@ -72,15 +78,15 @@ class Request:
                         if Request.cancel_check:
                             fp.close()
                             break
+                response_status['text'] = ""
             except PermissionError:
                 response_status['text'] = f"Error when downloading, permission denied. Please try and run as admin."
-                response_status['background'] = "red"
-            response_status['text'] = ""
+                response_status['background'] = "firebrick"
         elif req.status_code == 302:
             Request.download_file(url=req.headers['location'], file_name=file_name, progress_bar=progress_bar, response_status=response_status, stable=stable)
         else:
             response_status['text'] = f"Error when downloading, response code:{req.status_code}"
-            response_status['background'] = "red"
+            response_status['background'] = "firebrick"
         progress_bar.pack_forget()
 
     @staticmethod
@@ -170,6 +176,7 @@ class Application(ttk.Frame):
         if not self.change_folder or not self.destination_folder:
             self.destination_folder = filedialog.askdirectory()
         if self.destination_folder:
+            self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer!"
             threading.Thread(target=self.check_if_update_available()).start()
             self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
             self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
@@ -205,10 +212,10 @@ class Application(ttk.Frame):
                 file_name = download_url.split("/")[-1]
                 threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
                 if not self.response_status['text'] and not Request.cancel_check:
-                    self.response_status['text'] = "Unzipping file..."
                     threading.Thread(target=self.unzip_file(file_name=file_name, stable=stable)).start()
-                elif Request.cancel_check:
-                    self.response_status['text'] = f"Download cancelled!"
+                elif Request.cancel_check or "permission denied" in self.response_status['text']:
+                    if not self.response_status['text']:
+                        self.response_status['text'] = f"Download cancelled!"
                     self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
                     self.cancel.pack_forget()
                     self.browse_button.pack(side="top", pady=(20, 0))
@@ -216,7 +223,7 @@ class Application(ttk.Frame):
                     self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             else:
                 self.response_status['text'] = f"Error when downloading, response code: {response.status_code}"
-                self.response_status['background'] = "red"
+                self.response_status['background'] = "firebrick"
 
     def download_stable(self):
         self.download_zip(specific_url=latest_release_url)
@@ -229,9 +236,9 @@ class Application(ttk.Frame):
             latest_installer_version = Request.get(installer_release_url).json()['tag_name']
             if latest_installer_version != current_version:
                 self.update_installer_label['text'] = f"Please update installer, new version {latest_installer_version} available!"
-                self.update_installer_label['background'] = "orange"
+                self.update_installer_label['background'] = "#e85d04"
                 self.update_installer_label.pack(side="top", fill=tkinter.X)
-                browser_update_button = ttk.Button(self, text="Open new installer release page", style='W6.TButton', command=Request.open_installer_release_page_browser)
+                browser_update_button = ttk.Button(self, text="Open new version page", style='W6.TButton', command=Request.open_installer_release_page_browser)
                 browser_update_button.pack()
         except KeyError:
             pass
@@ -247,27 +254,27 @@ class Application(ttk.Frame):
                     with open(self.get_asset_json_path()) as file:
                         asset_data = json.load(file)
                         if 'stable' in asset_data.keys():
-                            self.filler_label['text'] = "Stable version is up to date!"
+                            self.filler_label['text'] = f"Stable version {latest_release_version} is up to date!"
                             self.filler_label['background'] = "green"
                             return
                         local_asset_id = asset_data['id']
                         latest_master_asset_id = Request.get(master_prerelease_url).json()['assets'][0]['id']
                         if local_asset_id == latest_master_asset_id:
-                            self.filler_label['text'] = "Dev version is up to date!"
+                            self.filler_label['text'] = "Development version is up to date!"
                             self.filler_label['background'] = "green"
                         else:
-                            self.filler_label['text'] = "Dev version is out of date, please consider updating!"
-                            self.filler_label['background'] = "orange"
+                            self.filler_label['text'] = "Development version is out of date, please consider updating!"
+                            self.filler_label['background'] = "#e85d04"
                 else:
                     self.filler_label['text'] = "A32NX version is out of date, please consider updating!"
-                    self.filler_label['background'] = "orange"
+                    self.filler_label['background'] = "#e85d04"
 
         except KeyError:
             self.filler_label['text'] = "Could not check for updates! Github API rate limit could be exceeded."
-            self.filler_label['background'] = "orange"
+            self.filler_label['background'] = "#e85d04"
         except AttributeError:
             self.filler_label['text'] = "Could not check for updates, first time installing?."
-            self.filler_label['background'] = "orange"
+            self.filler_label['background'] = "#e85d04"
 
     @staticmethod
     def convert_from(windows_timestamp: int) -> str:
@@ -279,6 +286,9 @@ class Application(ttk.Frame):
         return datetime.utcfromtimestamp(unix_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     def unzip_file(self, file_name: str, stable: bool):
+        self.response_status['text'] = "Installing A32NX..."
+        self.response_status['background'] = ""
+        self.response_status.update()
         try:
             archive = zipfile.ZipFile(f'{sys.prefix}/{file_name}')
             for file in archive.namelist():
@@ -295,7 +305,7 @@ class Application(ttk.Frame):
             self.response_status['background'] = "green"
             self.response_status['text'] = "A32NX correctly installed, everything should be good to go!"
         except (zipfile.BadZipfile, OSError, KeyError):
-            self.response_status['background'] = "red"
+            self.response_status['background'] = "firebrick"
             self.response_status['text'] = "Folder could not be unzipped, failed!"
         self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
         self.cancel.pack_forget()
