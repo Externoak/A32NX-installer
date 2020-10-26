@@ -2,3 +2,4 @@ Pillow
 hurry.filesize
 requests
 tqdm
+psutil
