@@ -206,6 +206,8 @@ class Application(ttk.Frame):
                         found_installation_path = row.split('InstalledPackagesPath')[1].lstrip().rstrip().strip('"')
                         self.destination_folder = f'{found_installation_path}\\Community'
                         self.destination_folder_msg['text'] = found_installation_path
+                if not found_installation_path:
+                    raise IOError
                 self.browse_button['text'] = "Change destination folder"
                 self.browse_button.pack(side="top", pady=(20, 0))
                 self.browse_search()
