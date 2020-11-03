@@ -14,6 +14,42 @@ This installer should automatically detect your MSFS Community folder, download 
 
 Click here to download the latest stable version: [Download](https://github.com/Externoak/A32NX-installer/releases/latest/download/A32NX_Downloader.zip)
 
+## FAQs
+
+- Do I need to install this?
+  
+  No, this is only an executable no installation is necessary.
+  
+- I don't trust running unknown exe file.
+  
+  The source code of the Downloader is available for all to view. The exe file will always be automatically created in an isolated environment using Github workflows, 
+  you are also free to scan the exe file using an antivirus or [Virustotal](https://www.virustotal.com/). 
+  
+- Do I need to find my Community folder?
+  
+  No, the Downloader should automatically detect your Community folder location, in some rare cases it will not be possible to detect it should then be manually selected .
+
+- Why is my download speed so slow?
+  
+  Your download speed from GitHub may vary depending on your connection to their servers, the Downloader will always use all available bandwidth.
+  
+- Downloader warning: "Could not check for updates! Github API rate limit could be exceeded".
+  
+  It is most likely you overused the GitHub API wait for a few minutes or up to one hour and retry again. 
+  
+- Downloader error: "Folder could not be unzipped, failed reason: FileNotFound".
+  
+  It is most likely you have MSFS installed in a WpSystem file path, this directory is write-protected and cannot be written to. 
+  The best solution is to select a temporary location for example your Desktop then download the A32NX folder there and move it manually to your Community folder.
+  
+- Still having issues?
+  
+  Join our discord and feel free to ask for help. 
+  
+  [![Discord](https://img.shields.io/discord/738864299392630914.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/UjzuHMU)
+   
+  
+
 ## Requirements (Only to regenerate the exe file)
 
 Python 3.8.x (3.8.2 - version used by [@Externoak](https://github.com/Externoak))

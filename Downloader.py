@@ -97,12 +97,16 @@ class Request:
     def open_installer_release_page_browser():
         webbrowser.open(url='https://github.com/Externoak/A32NX-installer/releases/latest')
 
+    @staticmethod
+    def open_installer_faqs_page_browser(_self):
+        webbrowser.open(url='https://github.com/Externoak/A32NX-installer#faqs')
+
 
 class CreateToolTip(object):
 
     def __init__(self, widget, text='widget info'):
-        self.waittime = 500
-        self.wraplength = 180
+        self.wait_time = 500
+        self.wrap_length = 180
         self.widget = widget
         self.text = text
         self.widget.bind("<Enter>", self.enter)
@@ -120,7 +124,7 @@ class CreateToolTip(object):
 
     def schedule(self):
         self.unschedule()
-        self.id = self.widget.after(self.waittime, self.showtip)
+        self.id = self.widget.after(self.wait_time, self.showtip)
 
     def unschedule(self):
         current_id = self.id
@@ -130,14 +134,18 @@ class CreateToolTip(object):
 
     def showtip(self):
         x, y, cx, cy = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + 50
-        y += self.widget.winfo_rooty() + 35
+        if str(self.widget) == ".!label6":
+            x += self.widget.winfo_rootx() + 300
+            y += self.widget.winfo_rooty() - 20
+        else:
+            x += self.widget.winfo_rootx() + 50
+            y += self.widget.winfo_rooty() + 35
         self.tw = tkinter.Toplevel(self.widget)
         self.tw.wm_overrideredirect(True)
         self.tw.wm_geometry("+%d+%d" % (x, y))
         label = ttk.Label(self.tw, text=self.text, justify='left',
                           background="#1B1B1B", relief='solid', borderwidth=1,
-                          wraplength=self.wraplength)
+                          wraplength=self.wrap_length)
         label.pack(ipadx=1)
 
     def hidetip(self):
@@ -171,14 +179,18 @@ class Application(ttk.Frame):
             self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
             self.destination_folder_msg.pack(side="top", fill=tkinter.X)
             self.progress_bar = ttk.Progressbar(self, style='text.Horizontal.TProgressbar', orient="horizontal", length=200, mode="determinate")
-            self.download_dev_btn = ttk.Button(self, text="Development version", width=20, style='W1.TButton', command=self.download_dev)
-            self.download_stable_btn = ttk.Button(self, width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
-            self.browse_button = ttk.Button(self, text="", width=30, style='W3.TButton', command=self.browse_search)
-            self.exit = ttk.Button(self, text="Exit", style='W4.TButton', command=self.master.destroy)
+            self.download_dev_btn = ttk.Button(self, cursor="hand2", text="Development version", width=20, style='W1.TButton', command=self.download_dev)
+            self.download_stable_btn = ttk.Button(self, cursor="hand2", width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
+            self.browse_button = ttk.Button(self, text="", cursor="hand2", width=30, style='W3.TButton', command=self.browse_search)
+            self.exit = ttk.Button(self, text="Exit", cursor="hand2", style='W4.TButton', command=self.master.destroy)
+            self.help_label = ttk.Label(text="Help?", cursor="hand2", wraplength=400, font=('Verdana', 8, 'bold', 'underline'), background="#1B1B1B", foreground="#ffc93c", anchor='e')
+            self.help_label.bind("<Button-1>", Request.open_installer_faqs_page_browser)
+            CreateToolTip(self.help_label, "Click me to open FAQs")
             self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
+            self.help_label.pack(side="bottom", fill=tkinter.BOTH)
             self.filler_label2 = ttk.Label(text="", background="#1B1B1B")
             self.filler_label2.pack(side="bottom", fill=tkinter.X)
-            self.cancel = ttk.Button(self, text="Cancel", style='W5.TButton', command=Request.update_cancel)
+            self.cancel = ttk.Button(self, cursor="hand2", text="Cancel", style='W5.TButton', command=Request.update_cancel)
             root.bind_class("TButton", "<Enter>", self.on_enter)
             root.bind_class("TButton", "<Leave>", self.on_leave)
             try:
@@ -201,6 +213,7 @@ class Application(ttk.Frame):
                 if not user_cfg_path:
                     raise IOError
                 file_data = open(user_cfg_path, 'r')
+                found_installation_path = ""
                 for row in file_data:
                     if "InstalledPackagesPath" in row:
                         found_installation_path = row.split('InstalledPackagesPath')[1].lstrip().rstrip().strip('"')
