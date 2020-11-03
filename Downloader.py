@@ -16,7 +16,7 @@ import zipfile
 import sys
 import json
 
-current_version = 'v0.6'
+current_version = 'v0.6.1'
 installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/releases/latest'
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
@@ -183,7 +183,7 @@ class Application(ttk.Frame):
             self.download_stable_btn = ttk.Button(self, cursor="hand2", width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
             self.browse_button = ttk.Button(self, text="", cursor="hand2", width=30, style='W3.TButton', command=self.browse_search)
             self.exit = ttk.Button(self, text="Exit", cursor="hand2", style='W4.TButton', command=self.master.destroy)
-            self.help_label = ttk.Label(text="Help?", cursor="hand2", wraplength=400, font=('Verdana', 8, 'bold', 'underline'), background="#1B1B1B", foreground="#ffc93c", anchor='e')
+            self.help_label = ttk.Label(text="Help", cursor="hand2", wraplength=400, font=('Verdana', 8, 'bold', 'underline'), background="#1B1B1B", foreground="#ffc93c", anchor='e')
             self.help_label.bind("<Button-1>", Request.open_installer_faqs_page_browser)
             CreateToolTip(self.help_label, "Click me to open FAQs")
             self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
