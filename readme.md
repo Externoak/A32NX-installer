@@ -16,6 +16,11 @@ Click here to download the latest stable version: [Download](https://github.com/
 
 ## FAQs
 
+**Q: What features does this have?**
+  
+A: This Downloader should automatically detect your MSFS Community folder, download and install the A32NX mod all with the click of a button. 
+   It will also check if the current version you have installed is up to date, either stable or development version as well as checking if the actual Downloader is up to date.
+
 **Q: Do I need to install this?**
   
 A: No, this is only an executable no installation is necessary.
@@ -23,7 +28,7 @@ A: No, this is only an executable no installation is necessary.
 **Q: I don't trust running an unknown exe file.**
   
 A: The source code of the Downloader is available for all to view. The exe file will always be automatically created in an isolated environment using Github workflows, 
-  you are also free to scan the exe file using an antivirus or [Virustotal](https://www.virustotal.com/). 
+   you are also free to scan the exe file using an antivirus or [Virustotal](https://www.virustotal.com/). 
   
 **Q: Do I need to find my Community folder?**
   
