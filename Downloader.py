@@ -433,7 +433,12 @@ class Application(ttk.Frame):
     def fetch_open_pr(self):
         pull_list = json.load(request.get('https://api.github.com/repos/flybywiresim/a32nx/pulls?state=open'))
         for pull in pull_list:
-            self.pr_data[f"{pull['number']}# {pull['title']}"] = pull['html_url']
+            for label in pull['labels']:
+                if 'Ready to Test' == label['name']:
+                    self.pr_data[f"{pull['number']}# | Ready To Test | {pull['title']}"] = pull['html_url']
+                    break
+            else:
+                self.pr_data[f"{pull['number']}# |{' ' * 26}| {pull['title']}"] = pull['html_url']
         self.pr_drop_down.set_menu(*self.pr_data)
         self.pr_drop_down.update()
 
