@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - QA-installer
   pull_request:
     branches:
       - master
