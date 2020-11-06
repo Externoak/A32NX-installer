@@ -1,5 +1,5 @@
 Pillow
 hurry.filesize
-requests
+beautifulsoup4
 tqdm
 psutil

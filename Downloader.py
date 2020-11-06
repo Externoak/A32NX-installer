@@ -4,19 +4,21 @@ from pathlib import Path
 import threading
 import time
 import tkinter
+from urllib.error import HTTPError
 import webbrowser
 from PIL.ImageTk import PhotoImage
 from hurry.filesize import size
 from tkinter.ttk import *
 from tkinter import filedialog, ttk
+from bs4 import BeautifulSoup
 import psutil as psutil
-import requests
+from urllib.request import urlopen, Request as UrlRequest
 import tqdm
 import zipfile
 import sys
 import json
 
-current_version = 'v0.6.1'
+current_version = 'QA version'
 installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/releases/latest'
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
@@ -29,69 +31,82 @@ class Request:
 
     @staticmethod
     def get(url: str):
-        response = requests.get(url)
+        url = UrlRequest(url, headers=get_headers)
+        response = urlopen(url)
         return response
 
     @staticmethod
-    def download_file(url: str, file_name: str, progress_bar: Progressbar, response_status: ttk.Label, stable: bool):
-        Request.cancel_check = False
+    def download_file(url: str, file_name: str, progress_bar: Progressbar, response_status: ttk.Label, stable: bool, pr: bool, download_size: int = None):
+        request.cancel_check = False
         if stable:
             download_message = f"Downloading stable version..."
+        elif pr:
+            download_message = f"Downloading PR version..."
+            url = UrlRequest(url, headers=get_headers)
         else:
             download_message = f"Downloading development version..."
-        chunk_size = 131072
-        req = requests.get(url, stream=True, allow_redirects=False, headers={'Accept-Encoding': None})
-        if req.status_code == 200:
-            try:
-                progress_bar.pack(side="top", pady=(40, 0))
-                progress_bar['value'] = 0
-                file_size = int(req.headers['Content-Length'])
-                num_bars = int(file_size / chunk_size)
-                pbar_percentage = tqdm.tqdm(total=int(file_size), bar_format='{percentage}')
+        chunk_size = 524288
+        dl = 0
+        try:
+            req = urlopen(url)
+            if req.status == 200:
                 start = time.perf_counter()
-                dl = 0
-                with open(f'{sys.prefix}/{file_name}', 'wb') as fp:
-                    response_status['text'] = download_message
-                    for chunk in tqdm.tqdm(req.iter_content(chunk_size=chunk_size), total=num_bars, unit='B', desc=f'{sys.prefix}/{file_name}', disable=True):
-                        fp.write(chunk)
-                        dl += len(chunk)
-                        response_status['text'] = f"{download_message} {round(dl // (time.perf_counter() - start) / 1600000, 3)} MB/s"
-                        pbar_percentage.update(len(chunk))
-                        current_percentage = round(float(str(pbar_percentage)))
-                        progress_bar['value'] = current_percentage
-                        style.configure('text.Horizontal.TProgressbar', text=f'{current_percentage} %')
-                        progress_bar.update()
-                        if Request.cancel_check:
-                            fp.close()
-                            break
-                progress_bar.pack_forget()
-                response_status['text'] = ""
-            except KeyError:
-                progress_bar.pack_forget()
-                total_chunk_downloaded = 0
-                with open(f'{sys.prefix}/{file_name}', 'wb') as fp:
-                    for chunk in req.iter_content(chunk_size=chunk_size):
-                        total_chunk_downloaded = total_chunk_downloaded + chunk_size
-                        response_status['text'] = f"{download_message} {size(total_chunk_downloaded)}b!"
-                        fp.write(chunk)
-                        progress_bar.update()
-                        if Request.cancel_check:
-                            fp.close()
-                            break
-                response_status['text'] = ""
-            except PermissionError:
-                response_status['text'] = f"Error when downloading, permission denied. Please try and run as admin."
-                response_status['background'] = "firebrick"
-        elif req.status_code == 302:
-            Request.download_file(url=req.headers['location'], file_name=file_name, progress_bar=progress_bar, response_status=response_status, stable=stable)
-        else:
-            response_status['text'] = f"Error when downloading, response code:{req.status_code}"
+                try:
+                    progress_bar.pack(side="top", pady=(40, 0))
+                    progress_bar['value'] = 0
+                    file_size = int(req.headers['Content-Length'])
+                    pbar_percentage = tqdm.tqdm(total=int(file_size), bar_format='{percentage}')
+                    with open(f'{sys.prefix}/{file_name}', 'wb') as fp:
+                        response_status['text'] = download_message
+                        while True:
+                            chunk = req.read(chunk_size)
+                            if not chunk:
+                                break
+                            fp.write(chunk)
+                            dl += len(chunk)
+                            response_status['text'] = f"{download_message} {round(dl // (time.perf_counter() - start) / 1600000, 3)} MB/s"
+                            pbar_percentage.update(len(chunk))
+                            current_percentage = round(float(str(pbar_percentage)))
+                            progress_bar['value'] = current_percentage
+                            style.configure('text.Horizontal.TProgressbar', text=f'{current_percentage} %')
+                            progress_bar.update()
+                            if request.cancel_check:
+                                fp.close()
+                                break
+                            fp.flush()
+                    progress_bar.pack_forget()
+                    response_status['text'] = ""
+                except TypeError:
+                    progress_bar.pack_forget()
+                    total_chunk_downloaded = 0
+                    with open(f'{sys.prefix}/{file_name}', 'wb') as fp:
+                        while True:
+                            chunk = req.read(chunk_size)
+                            if not chunk:
+                                break
+                            total_chunk_downloaded = total_chunk_downloaded + chunk_size
+                            response_status['text'] = f"{download_message} {round(dl // (time.perf_counter() - start) / 1600000, 3)} MB/s Total downloaded: {size(total_chunk_downloaded)}b!"
+                            fp.write(chunk)
+                            dl += len(chunk)
+                            progress_bar.update()
+                            if request.cancel_check:
+                                fp.close()
+                                break
+                            fp.flush()
+                    response_status['text'] = ""
+                except PermissionError:
+                    response_status['text'] = f"Error when downloading, permission denied. Please try and run as admin."
+                    response_status['background'] = "firebrick"
+            elif req.status == 302:
+                request.download_file(url=req.headers['location'], file_name=file_name, progress_bar=progress_bar, response_status=response_status, stable=stable, pr=pr, download_size=download_size)
+        except HTTPError as e:
+            response_status['text'] = f"Error when downloading, response code: {e}"
             response_status['background'] = "firebrick"
         progress_bar.pack_forget()
 
     @staticmethod
     def update_cancel():
-        Request.cancel_check = True
+        request.cancel_check = True
 
     @staticmethod
     def open_installer_release_page_browser():
@@ -167,30 +182,45 @@ class Application(ttk.Frame):
         self.Artwork['image'] = self.photo
         self.Artwork.photo = self.photo
         self.Artwork.pack()
-        if "FlightSimulator.exe" not in (p.name() for p in psutil.process_iter()):
+        if not token_set:
+            self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer for QA! Please set up your GITHUB token before starting the app.", wraplength=400, background="firebrick", foreground="white")
+            self.response_status.pack(side="top", fill=tkinter.X)
+            self.exit = ttk.Button(self, text="Exit", style='W4.TButton', command=self.master.destroy)
+            self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
+            self.pack(after=self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184)))
+        elif "FlightSimulator.exe" not in (p.name() for p in psutil.process_iter()):
             self.latest_release_version = ""
             self.latest_development_update_timestamp = ""
             self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
             self.response_status.pack(side="top", fill=tkinter.X)
             self.update_installer_label = ttk.Label(text="", background="#1B1B1B")
-            threading.Thread(target=self.check_installer_update()).start()
             self.filler_label = ttk.Label(text="", background="#1B1B1B")
             self.filler_label.pack(side="top", fill=tkinter.X)
             self.destination_folder_msg = ttk.Label(text="", background="#1B1B1B", wraplength=400)
             self.destination_folder_msg.pack(side="top", fill=tkinter.X)
+            self.active_pr = ""
+            self.current_pr_active_url = ""
+            self.pr_data = {'Please select a PR': 'Please select a PR'}
+            threading.Thread(target=self.fetch_open_pr).start()
+            self.variable = tkinter.StringVar(master)
+            self.pr_drop_down = ttk.OptionMenu(master, self.variable, *self.pr_data, style='D1.TMenubutton', command=self.set_active_pr)
+            self.pr_drop_down["menu"].config(bg="#1B1B1B", fg="white")
+            self.pr_drop_down.pack(side="top")
             self.progress_bar = ttk.Progressbar(self, style='text.Horizontal.TProgressbar', orient="horizontal", length=200, mode="determinate")
             self.download_dev_btn = ttk.Button(self, cursor="hand2", text="Development version", width=20, style='W1.TButton', command=self.download_dev)
             self.download_stable_btn = ttk.Button(self, cursor="hand2", width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
+            self.download_pr_btn = ttk.Button(self, cursor="hand2", width=20, text="Download selected PR", style='W2.TButton', command=self.download_pr)
             self.browse_button = ttk.Button(self, text="", cursor="hand2", width=30, style='W3.TButton', command=self.browse_search)
+            threading.Thread(target=self.check_installer_update).start()
             self.exit = ttk.Button(self, text="Exit", cursor="hand2", style='W4.TButton', command=self.master.destroy)
             self.help_label = ttk.Label(text="Help", cursor="hand2", wraplength=400, font=('Verdana', 8, 'bold', 'underline'), background="#1B1B1B", foreground="#ffc93c", anchor='e')
-            self.help_label.bind("<Button-1>", Request.open_installer_faqs_page_browser)
+            self.help_label.bind("<Button-1>", request.open_installer_faqs_page_browser)
             CreateToolTip(self.help_label, "Click me to open FAQs")
             self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
             self.help_label.pack(side="bottom", fill=tkinter.BOTH)
             self.filler_label2 = ttk.Label(text="", background="#1B1B1B")
             self.filler_label2.pack(side="bottom", fill=tkinter.X)
-            self.cancel = ttk.Button(self, cursor="hand2", text="Cancel", style='W5.TButton', command=Request.update_cancel)
+            self.cancel = ttk.Button(self, cursor="hand2", text="Cancel", style='W5.TButton', command=request.update_cancel)
             root.bind_class("TButton", "<Enter>", self.on_enter)
             root.bind_class("TButton", "<Leave>", self.on_leave)
             try:
@@ -221,10 +251,10 @@ class Application(ttk.Frame):
                         self.destination_folder_msg['text'] = found_installation_path
                 if not found_installation_path:
                     raise IOError
+                file_data.close()
                 self.browse_button['text'] = "Change destination folder"
                 self.browse_button.pack(side="top", pady=(20, 0))
                 self.browse_search()
-                file_data.close()
             except IOError:
                 self.destination_folder = ""
                 self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer. Could not automatically detect Community folder, please select it manually!"
@@ -250,13 +280,19 @@ class Application(ttk.Frame):
                 self.destination_folder = previous_folder
         if self.destination_folder:
             self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer!"
-            threading.Thread(target=self.check_if_update_available()).start()
-            self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
-            self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
-            CreateToolTip(self.download_stable_btn, f"Latest available stable version: {self.latest_release_version}")
-            if self.latest_development_update_timestamp:
-                date, timestamp = self.latest_development_update_timestamp.split('T')
-                CreateToolTip(self.download_dev_btn, f"Latest development version was updated at: {date} {timestamp}")
+            threading.Thread(target=self.check_if_update_available).start()
+            if self.active_pr:
+                self.download_dev_btn.pack_forget()
+                self.download_stable_btn.pack_forget()
+                self.download_pr_btn.pack(pady=(20, 0))
+            else:
+                self.download_pr_btn.pack_forget()
+                self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
+                self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
+                CreateToolTip(self.download_stable_btn, f"Latest available stable version: {self.latest_release_version}")
+                if self.latest_development_update_timestamp:
+                    date, timestamp = self.latest_development_update_timestamp.split('T')
+                    CreateToolTip(self.download_dev_btn, f"Latest development version was updated at: {date} {timestamp}")
             msg = f'Destination folder: {self.destination_folder}'
             self.browse_button['text'] = "Change destination folder"
             self.browse_button.pack(side="top", pady=(20, 0))
@@ -274,50 +310,86 @@ class Application(ttk.Frame):
         self.destination_folder_msg.pack(side="top", fill=tkinter.X)
         ttk.Label(root, text="name")
 
-    def download_zip(self, specific_url: str, stable: bool = True):
+    def download_zip(self, specific_url: str, stable: bool = True, pr: bool = False):
         if self.destination_folder:
-            response = Request.get(specific_url)
-            if response.status_code == 200:
-                self.filler_label['text'] = ""
-                self.filler_label['background'] = "#1B1B1B"
-                self.browse_button.pack_forget()
-                self.download_dev_btn.pack_forget()
-                self.download_stable_btn.pack_forget()
-                self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
-                self.exit.pack_forget()
-                download_url = response.json()["assets"][0]["browser_download_url"]
-                file_name = download_url.split("/")[-1]
-                threading.Thread(target=Request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
-                if not self.response_status['text'] and not Request.cancel_check:
+            response = request.get(specific_url)
+            if response.status == 200:
+                download_artifact_size = None
+                download_url = None
+                file_name = None
+                if pr:
+                    reference_run_number = ""
+                    soup = BeautifulSoup(response.read(), "lxml")
+                    for ref in soup.findAll('a'):
+                        if "/flybywiresim/a32nx/actions/runs/" in str(ref.get('href')):
+                            reference_run_number = str(ref.get('href')).rsplit('/', 1)[1]
+                            break
+                    if reference_run_number:
+                        run_data = json.load(request.get(f'https://api.github.com/repos/flybywiresim/a32nx/actions/runs/{reference_run_number}/artifacts'))
+                        download_artifact_size = run_data["artifacts"][0]["size_in_bytes"]
+                        download_url = run_data["artifacts"][0]["archive_download_url"]
+                        file_name = "A32NX.zip"
+                    else:
+                        self.response_status['text'] = f"Unable to find PR artifact!"
+                else:
+                    download_url = json.load(response)["assets"][0]["browser_download_url"]
+                    file_name = download_url.split("/")[-1]
+                if file_name and download_url:
+                    self.filler_label['text'] = ""
+                    self.filler_label['background'] = "#1B1B1B"
+                    self.pr_drop_down.pack_forget()
+                    self.browse_button.pack_forget()
+                    self.download_dev_btn.pack_forget()
+                    self.download_stable_btn.pack_forget()
+                    self.download_pr_btn.pack_forget()
+                    self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
+                    self.exit.pack_forget()
+                    threading.Thread(target=request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable, pr=pr, download_size=download_artifact_size)).start()
+                if not self.response_status['text'] and not request.cancel_check:
                     threading.Thread(target=self.unzip_file, kwargs={'file_name': file_name, 'stable': stable}).start()
-                elif Request.cancel_check or "permission denied" in self.response_status['text']:
+                elif request.cancel_check or "permission denied" in self.response_status['text'] or 'HTTP' in self.response_status['text']:
                     if not self.response_status['text']:
                         self.response_status['text'] = f"Download cancelled!"
                     self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
                     self.cancel.pack_forget()
                     self.browse_button.pack(side="top", pady=(20, 0))
-                    self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
-                    self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
+                    self.pr_drop_down.pack(side="top", before=self.browse_button)
+                    if pr:
+                        self.download_pr_btn.pack(pady=(20, 0))
+                    else:
+                        self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
+                        self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
             else:
-                self.response_status['text'] = f"Error when downloading, response code: {response.status_code}"
+                self.response_status['text'] = f"Error when downloading, response code: {response.status}"
                 self.response_status['background'] = "firebrick"
 
     def download_stable(self):
         self.download_zip(specific_url=latest_release_url)
 
+    def download_pr(self):
+        self.download_zip(specific_url=f'{self.current_pr_active_url}/checks', stable=False, pr=True)
+
     def download_dev(self):
         self.download_zip(specific_url=master_prerelease_url, stable=False)
 
+    def set_active_pr(self, value):
+        self.active_pr = value
+        self.current_pr_active_url = self.pr_data[value]
+        self.change_folder = True
+        CreateToolTip(self.download_pr_btn, f"Selected PR is: {value}")
+        self.browse_search()
+
     def check_installer_update(self):
         try:
-            latest_installer_version = Request.get(installer_release_url).json()['tag_name']
-            if latest_installer_version != current_version:
-                self.update_installer_label['text'] = f"Please update installer, new version {latest_installer_version} available!"
-                self.update_installer_label['background'] = "#e85d04"
-                self.update_installer_label.pack(side="top", fill=tkinter.X)
-                browser_update_button = ttk.Button(self, text="New Installer version", style='W6.TButton', command=Request.open_installer_release_page_browser)
-                CreateToolTip(browser_update_button, f"New available version {latest_installer_version}, click to open webpage!")
-                browser_update_button.pack()
+            if 'QA' not in current_version:
+                latest_installer_version = json.load(request.get(installer_release_url))['tag_name']
+                if latest_installer_version != current_version:
+                    self.update_installer_label['text'] = f"Please update installer, new version {latest_installer_version} available!"
+                    self.update_installer_label['background'] = "#e85d04"
+                    self.update_installer_label.pack(side="top", fill=tkinter.X, after=self.response_status)
+                    browser_update_button = ttk.Button(self, text="New Installer version", style='W6.TButton', command=request.open_installer_release_page_browser)
+                    CreateToolTip(browser_update_button, f"New available version {latest_installer_version}, click to open webpage!")
+                    browser_update_button.pack(side="top", before=self.browse_button)
         except KeyError:
             pass
 
@@ -327,7 +399,7 @@ class Application(ttk.Frame):
             if manifest_path.is_file():
                 manifest_file = open(manifest_path, 'r')
                 manifest_version = json.load(manifest_file)["package_version"]
-                self.latest_release_version = Request.get(latest_release_url).json()['tag_name'].strip("v")
+                self.latest_release_version = json.load(request.get(latest_release_url))['tag_name'].strip("v")
                 if manifest_version == self.latest_release_version and self.get_asset_json_path().is_file():
                     with open(self.get_asset_json_path()) as file:
                         asset_data = json.load(file)
@@ -336,7 +408,7 @@ class Application(ttk.Frame):
                             self.filler_label['background'] = "green"
                             return
                         local_asset_id = asset_data['id']
-                        development_github_data = Request.get(master_prerelease_url).json()
+                        development_github_data = json.load(request.get(master_prerelease_url))
                         latest_master_asset_id = development_github_data['assets'][0]['id']
                         self.latest_development_update_timestamp = development_github_data['assets'][0]['updated_at']
                         if local_asset_id == latest_master_asset_id:
@@ -355,6 +427,14 @@ class Application(ttk.Frame):
         except AttributeError:
             self.filler_label['text'] = "Could not check for updates, first time installing?."
             self.filler_label['background'] = "#e85d04"
+        self.filler_label.update()
+
+    def fetch_open_pr(self):
+        pull_list = json.load(request.get('https://api.github.com/repos/flybywiresim/a32nx/pulls?state=open'))
+        for pull in pull_list:
+            self.pr_data[f"{pull['number']}# {pull['title']}"] = pull['html_url']
+        self.pr_drop_down.set_menu(*self.pr_data)
+        self.pr_drop_down.update()
 
     @staticmethod
     def convert_from(windows_timestamp: int) -> str:
@@ -378,7 +458,7 @@ class Application(ttk.Frame):
             if stable:
                 latest_master_asset = {'stable': 'True'}
             else:
-                latest_master_asset = Request.get(master_prerelease_url).json()['assets'][0]
+                latest_master_asset = json.load(request.get(master_prerelease_url))['assets'][0]
             with open(self.get_asset_json_path(), 'w', encoding='utf-8') as f:
                 # Store asset.json in A32NX folder so we can check it later to see if it is still up to date
                 json.dump(latest_master_asset, f, ensure_ascii=False, indent=4)
@@ -400,6 +480,14 @@ class Application(ttk.Frame):
 
 
 if __name__ == '__main__':
+    try:
+        get_headers = {'Authorization': f'token {os.environ["GITHUB_TOKEN"]}',
+                       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36'
+                       }
+        token_set = True
+    except KeyError:
+        token_set = False
+    request = Request()
     root = tkinter.Tk()
     root.resizable(False, False)
     root.iconbitmap(default=f"{sys.prefix}/icon.ico")
@@ -413,6 +501,7 @@ if __name__ == '__main__':
     ttk.Style().configure('W4.TButton', background="#545454")
     ttk.Style().configure('W5.TButton', background="#545454")
     ttk.Style().configure('W6.TButton', background="#00C2CB")
+    ttk.Style().configure('D1.TMenubutton', background="#545454", foreground="white", width=70, borderwidth=0)
     style.layout('text.Horizontal.TProgressbar',
                  [('Horizontal.Progressbar.trough',
                    {'children': [('Horizontal.Progressbar.pbar',
