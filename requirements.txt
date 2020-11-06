@@ -3,3 +3,4 @@ hurry.filesize
 beautifulsoup4
 tqdm
 psutil
+requests
