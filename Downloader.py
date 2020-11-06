@@ -394,6 +394,8 @@ class Application(ttk.Frame):
             pass
 
     def check_if_update_available(self):
+        self.filler_label['text'] = ""
+        self.filler_label['background'] = "#1B1B1B"
         try:
             manifest_path = Path(f'{self.destination_folder}\\A32NX\\manifest.json')
             if manifest_path.is_file():
@@ -420,7 +422,6 @@ class Application(ttk.Frame):
                 else:
                     self.filler_label['text'] = "A32NX version is out of date, please consider updating!"
                     self.filler_label['background'] = "#e85d04"
-
         except KeyError:
             self.filler_label['text'] = "Could not check for updates! Github API rate limit could be exceeded."
             self.filler_label['background'] = "#e85d04"

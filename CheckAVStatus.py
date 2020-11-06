@@ -8,7 +8,7 @@ url_result = 'https://www.virustotal.com/vtapi/v2/file/report'
 
 api_key = os.environ['VIRUS_TOTAL_API_KEY']
 post_params = {'apikey': api_key}
-files = {'file': ('dist/A32NX_Downloader.exe', open('dist/A32NX_Downloader.exe', 'rb'))}
+files = {'file': ('dist/A32NX_Downloader_QA_Version.exe', open('dist/A32NX_Downloader_QA_Version.exe', 'rb'))}
 print('Requesting AV scan for new exe file!')
 post_response = requests.post(url_post, files=files, params=post_params)
 if post_response.status_code == 200:
