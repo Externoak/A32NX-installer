@@ -173,7 +173,7 @@ class Application(ttk.Frame):
         self.change_folder = True
         self.original_background = ""
         self.Artwork = ttk.Label(image="", borderwidth=0)
-        self.photo = PhotoImage(file=f"Image.pbm")
+        self.photo = PhotoImage(file=f"{sys.prefix}/Image.pbm")
         self.Artwork['image'] = self.photo
         self.Artwork.photo = self.photo
         self.Artwork.pack()
@@ -416,7 +416,7 @@ if __name__ == '__main__':
     request = Request()
     root = tkinter.Tk()
     root.resizable(False, False)
-    root.iconbitmap(default=f"icon.ico")
+    root.iconbitmap(default=f"{sys.prefix}/icon.ico")
     style = ttk.Style(root)
     style.theme_use("clam")
     style.configure(root, background='#1B1B1B')
