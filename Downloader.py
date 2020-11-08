@@ -348,6 +348,8 @@ class Application(ttk.Frame):
                     self.download_dev_btn.pack_forget()
                     self.download_stable_btn.pack_forget()
                     self.download_pr_btn.pack_forget()
+                    self.r1.pack_forget()
+                    self.r2.pack_forget()
                     self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
                     self.exit.pack_forget()
                     threading.Thread(target=request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable, pr=pr, download_size=download_artifact_size)).start()
@@ -361,6 +363,8 @@ class Application(ttk.Frame):
                     self.browse_button.pack(side="top", pady=(20, 0))
                     self.pr_drop_down.pack(side="top", before=self.browse_button)
                     if pr:
+                        self.r1.pack(side="top", after=self.response_status, anchor='w', fill=tkinter.X)
+                        self.r2.pack(side="top", after=self.r1, anchor='w', fill=tkinter.X)
                         self.download_pr_btn.pack(pady=(20, 0))
                     else:
                         self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
@@ -442,7 +446,6 @@ class Application(ttk.Frame):
         threading.Thread(target=self.fetch_open_pr).start()
 
     def fetch_open_pr(self):
-        print(self.selected_mode.get())
         if self.selected_mode.get() == 'QA':
             keywords = "Ready to Test"
             n_spaces = 27
