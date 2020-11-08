@@ -177,6 +177,7 @@ class Application(ttk.Frame):
         master.title(f'FlyByWire Downloader {current_version}')
         self.change_folder = True
         self.original_background = ""
+        self.selected_mode = tkinter.StringVar(master, 'QA')
         self.Artwork = ttk.Label(image="", borderwidth=0)
         self.photo = PhotoImage(file=f"{sys.prefix}/Image.pbm")
         self.Artwork['image'] = self.photo
@@ -205,7 +206,12 @@ class Application(ttk.Frame):
             self.variable = tkinter.StringVar(master)
             self.pr_drop_down = ttk.OptionMenu(master, self.variable, *self.pr_data, style='D1.TMenubutton', command=self.set_active_pr)
             self.pr_drop_down["menu"].config(bg="#1B1B1B", fg="white")
+            self.pr_drop_down.config(state="disable")
             self.pr_drop_down.pack(side="top")
+            self.r1 = ttk.Radiobutton(master, text="QA", variable=self.selected_mode, value='QA', command=self.update_pr_list)
+            self.r2 = ttk.Radiobutton(master, text="Pilot", variable=self.selected_mode, value='PILOT', command=self.update_pr_list)
+            self.r1.pack(side="top", after=self.response_status, anchor='w', fill=tkinter.X)
+            self.r2.pack(side="top", after=self.r1, anchor='w', fill=tkinter.X)
             self.progress_bar = ttk.Progressbar(self, style='text.Horizontal.TProgressbar', orient="horizontal", length=200, mode="determinate")
             self.download_dev_btn = ttk.Button(self, cursor="hand2", text="Development version", width=20, style='W1.TButton', command=self.download_dev)
             self.download_stable_btn = ttk.Button(self, cursor="hand2", width=20, text="Stable version", style='W2.TButton', command=self.download_stable)
@@ -280,12 +286,12 @@ class Application(ttk.Frame):
                 self.destination_folder = previous_folder
         if self.destination_folder:
             self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer!"
-            threading.Thread(target=self.check_if_update_available).start()
             if self.active_pr:
                 self.download_dev_btn.pack_forget()
                 self.download_stable_btn.pack_forget()
                 self.download_pr_btn.pack(pady=(20, 0))
             else:
+                threading.Thread(target=self.check_if_update_available).start()
                 self.download_pr_btn.pack_forget()
                 self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
                 self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
@@ -430,16 +436,29 @@ class Application(ttk.Frame):
             self.filler_label['background'] = "#e85d04"
         self.filler_label.update()
 
+    def update_pr_list(self):
+        self.pr_data = {'Please select a PR': 'Please select a PR'}
+        self.pr_drop_down.config(state="disable")
+        threading.Thread(target=self.fetch_open_pr).start()
+
     def fetch_open_pr(self):
+        print(self.selected_mode.get())
+        if self.selected_mode.get() == 'QA':
+            keywords = "Ready to Test"
+            n_spaces = 27
+        else:
+            keywords = "Needs IRL Pilot Accuracy Check"
+            n_spaces = 60
         pull_list = json.load(request.get('https://api.github.com/repos/flybywiresim/a32nx/pulls?state=open'))
         for pull in pull_list:
             for label in pull['labels']:
-                if 'Ready to Test' == label['name']:
-                    self.pr_data[f"{pull['number']}# | Ready To Test | {pull['title']}"] = pull['html_url']
+                if keywords == label['name']:
+                    self.pr_data[f"{pull['number']}# |  {keywords}  | {pull['title']}"] = pull['html_url']
                     break
             else:
-                self.pr_data[f"{pull['number']}# |{' ' * 26}| {pull['title']}"] = pull['html_url']
+                self.pr_data[f"{pull['number']}# |{' ' * n_spaces}| {pull['title']}"] = pull['html_url']
         self.pr_drop_down.set_menu(*self.pr_data)
+        self.pr_drop_down.config(state="enable")
         self.pr_drop_down.update()
 
     @staticmethod
