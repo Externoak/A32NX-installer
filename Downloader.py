@@ -175,6 +175,7 @@ class Application(ttk.Frame):
         super().__init__(master)
         master.title(f'FlyByWire Downloader {current_version}')
         self.change_folder = True
+        self.user_tmp_directory = tempfile.gettempdir()
         self.original_background = ""
         self.Artwork = ttk.Label(image="", borderwidth=0)
         self.photo = PhotoImage(file=f"{sys.prefix}/Image.pbm")
@@ -256,12 +257,11 @@ class Application(ttk.Frame):
             self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
         self.pack(after=self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184)))
 
-    def get_asset_json_path(self):
+    def get_asset_json_path(self) -> Path:
         return Path(f'{self.destination_folder}\\A32NX\\{asset_json_name}')
 
-    @staticmethod
-    def custom_folder_path():
-        return Path(f'{tempfile.gettempdir()}\\CustomCommunityFolder.json')
+    def custom_folder_path(self) -> Path:
+        return Path(f'{self.user_tmp_directory}\\CustomCommunityFolder.json')
 
     def get_custom_file_path(self):
         try:
