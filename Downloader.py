@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import tempfile
 import threading
 import time
 import tkinter
@@ -31,9 +32,12 @@ class Request:
 
     @staticmethod
     def get(url: str):
-        url = UrlRequest(url, headers=get_headers)
-        response = urlopen(url)
-        return response
+        try:
+            url = UrlRequest(url, headers=get_headers)
+            response = urlopen(url)
+            return response
+        except HTTPError as e:
+            return e
 
     @staticmethod
     def download_file(url: str, file_name: str, progress_bar: Progressbar, response_status: ttk.Label, stable: bool, pr: bool, download_size: int = None):
@@ -176,6 +180,7 @@ class Application(ttk.Frame):
         super().__init__(master)
         master.title(f'FlyByWire Downloader {current_version}')
         self.change_folder = True
+        self.user_tmp_directory = tempfile.gettempdir()
         self.original_background = ""
         self.selected_mode = tkinter.StringVar(master, 'QA')
         self.Artwork = ttk.Label(image="", borderwidth=0)
@@ -230,34 +235,39 @@ class Application(ttk.Frame):
             root.bind_class("TButton", "<Enter>", self.on_enter)
             root.bind_class("TButton", "<Leave>", self.on_leave)
             try:
-                user_cfg_path = None
-                normal_steam_user_cfg_location = Path(f'{os.environ["APPDATA"]}\\Microsoft Flight Simulator\\UserCfg.opt')
-                normal_msfs_store_user_cfg_location = Path(f'{os.environ["LOCALAPPDATA"]}\\Packages\\Microsoft.FlightSimulator_8wekyb3d8bbwe\\LocalCache\\UserCfg.opt')
-                if normal_steam_user_cfg_location.is_file():
-                    user_cfg_path = normal_steam_user_cfg_location
-                elif normal_msfs_store_user_cfg_location.is_file():
-                    user_cfg_path = normal_msfs_store_user_cfg_location
+                self.user_cfg_path = None
+                self.get_custom_file_path()
+                if not self.user_cfg_path:
+                    normal_steam_user_cfg_location = Path(f'{os.environ["APPDATA"]}\\Microsoft Flight Simulator\\UserCfg.opt')
+                    normal_msfs_store_user_cfg_location = Path(f'{os.environ["LOCALAPPDATA"]}\\Packages\\Microsoft.FlightSimulator_8wekyb3d8bbwe\\LocalCache\\UserCfg.opt')
+                    if normal_steam_user_cfg_location.is_file():
+                        self.user_cfg_path = normal_steam_user_cfg_location
+                    elif normal_msfs_store_user_cfg_location.is_file():
+                        self.user_cfg_path = normal_msfs_store_user_cfg_location
+                    else:
+                        try:
+                            for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
+                                clean_path = path.resolve()
+                                if "Flight" in str(clean_path) and str(clean_path).endswith('UserCfg.opt'):
+                                    self.user_cfg_path = path
+                                    break
+                        except FileNotFoundError:
+                            pass
+                    if not self.user_cfg_path:
+                        raise IOError
+                    file_data = open(self.user_cfg_path, 'r')
+                    found_installation_path = ""
+                    for row in file_data:
+                        if "InstalledPackagesPath" in row:
+                            found_installation_path = row.split('InstalledPackagesPath')[1].lstrip().rstrip().strip('"')
+                            self.destination_folder = f'{found_installation_path}\\Community'
+                            self.destination_folder_msg['text'] = found_installation_path
+                    if not found_installation_path:
+                        raise IOError
+                    file_data.close()
                 else:
-                    try:
-                        for path in Path(Path(os.environ['APPDATA']).parent).rglob('UserCfg.opt'):
-                            clean_path = path.resolve()
-                            if "Flight" in str(clean_path) and str(clean_path).endswith('UserCfg.opt'):
-                                user_cfg_path = path
-                                break
-                    except FileNotFoundError:
-                        pass
-                if not user_cfg_path:
-                    raise IOError
-                file_data = open(user_cfg_path, 'r')
-                found_installation_path = ""
-                for row in file_data:
-                    if "InstalledPackagesPath" in row:
-                        found_installation_path = row.split('InstalledPackagesPath')[1].lstrip().rstrip().strip('"')
-                        self.destination_folder = f'{found_installation_path}\\Community'
-                        self.destination_folder_msg['text'] = found_installation_path
-                if not found_installation_path:
-                    raise IOError
-                file_data.close()
+                    self.destination_folder = self.user_cfg_path
+                    self.destination_folder_msg['text'] = self.user_cfg_path
                 self.browse_button['text'] = "Change destination folder"
                 self.browse_button.pack(side="top", pady=(20, 0))
                 self.browse_search()
@@ -276,6 +286,27 @@ class Application(ttk.Frame):
     def get_asset_json_path(self):
         return Path(f'{self.destination_folder}\\A32NX\\{asset_json_name}')
 
+    def custom_folder_path(self) -> Path:
+        return Path(f'{self.user_tmp_directory}\\CustomCommunityFolder.json')
+
+    def get_custom_file_path(self):
+        try:
+            if self.custom_folder_path().is_file():
+                with open(self.custom_folder_path()) as f:
+                    custom_file_data = json.load(f)
+                    self.user_cfg_path = Path(custom_file_data['path'])
+        except json.decoder.JSONDecodeError:
+            self.custom_folder_path().unlink()
+
+    def set_custom_file_path(self):
+        try:
+            if self.destination_folder:
+                data = {'path': self.destination_folder}
+                with open(self.custom_folder_path(), 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=4)
+        except IOError:
+            pass
+
     def browse_search(self):
         self.response_status['background'] = ""
         self.response_status.pack(side="top", fill=tkinter.X)
@@ -284,6 +315,8 @@ class Application(ttk.Frame):
             self.destination_folder = filedialog.askdirectory()
             if not self.destination_folder and previous_folder:
                 self.destination_folder = previous_folder
+            if previous_folder != self.destination_folder:
+                self.set_custom_file_path()
         if self.destination_folder:
             self.response_status['text'] = "Welcome to A32NX Mod Downloader & Installer!"
             if self.active_pr:
