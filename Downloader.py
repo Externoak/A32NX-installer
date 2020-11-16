@@ -23,6 +23,7 @@ installer_release_url = 'https://api.github.com/repos/externoak/A32NX-installer/
 master_prerelease_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/tags/vmaster'
 latest_release_url = 'https://api.github.com/repos/flybywiresim/a32nx/releases/latest'
 asset_json_name = 'asset.json'
+active_download_server = 'Github'
 
 
 class Request:
@@ -184,6 +185,7 @@ class Application(ttk.Frame):
         self.Artwork.pack()
         if "FlightSimulator.exe" not in (p.name() for p in psutil.process_iter()):
             self.latest_release_version = ""
+            self.development_github_data = {}
             self.latest_development_update_timestamp = ""
             self.response_status = ttk.Label(text="Welcome to A32NX Mod Downloader & Installer!", wraplength=400, background="#1B1B1B", foreground="white")
             self.response_status.pack(side="top", fill=tkinter.X)
@@ -296,10 +298,6 @@ class Application(ttk.Frame):
             threading.Thread(target=self.check_if_update_available).start()
             self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
             self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
-            CreateToolTip(self.download_stable_btn, f"Latest available stable version: {self.latest_release_version}")
-            if self.latest_development_update_timestamp:
-                date, timestamp = self.latest_development_update_timestamp.split('T')
-                CreateToolTip(self.download_dev_btn, f"Latest development version was updated at: {date} {timestamp}")
             msg = f'Destination folder: {self.destination_folder}'
             self.browse_button['text'] = "Change destination folder"
             self.browse_button.pack(side="top", pady=(20, 0))
@@ -319,38 +317,54 @@ class Application(ttk.Frame):
 
     def download_zip(self, specific_url: str, stable: bool = True):
         if self.destination_folder:
-            response = request.get(specific_url)
-            if response.status == 200:
-                download_url = json.load(response)["assets"][0]["browser_download_url"]
-                file_name = download_url.split("/")[-1]
-                if file_name and download_url:
-                    self.filler_label['text'] = ""
-                    self.filler_label['background'] = "#1B1B1B"
-                    self.browse_button.pack_forget()
-                    self.download_dev_btn.pack_forget()
-                    self.download_stable_btn.pack_forget()
-                    self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
-                    self.exit.pack_forget()
-                    threading.Thread(target=request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
-                if not self.response_status['text'] and not request.cancel_check:
-                    threading.Thread(target=self.unzip_file, kwargs={'file_name': file_name, 'stable': stable}).start()
-                elif request.cancel_check or "permission denied" in self.response_status['text'] or 'HTTP' in self.response_status['text']:
-                    if not self.response_status['text']:
-                        self.response_status['text'] = f"Download cancelled!"
-                    self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
-                    self.cancel.pack_forget()
-                    self.browse_button.pack(side="top", pady=(20, 0))
-                    self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
-                    self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
+            download_url = None
+            file_name = None
+            if active_download_server == 'Github':
+                response = request.get(specific_url)
+                if response.status == 200:
+                    download_url = json.load(response)["assets"][0]["browser_download_url"]
+                    file_name = download_url.split("/")[-1]
             else:
-                self.response_status['text'] = f"Error when downloading, response code: {response.status}"
+                file_name = specific_url.split("/")[-1]
+                download_url = specific_url
+            if file_name and download_url:
+                self.filler_label['text'] = ""
+                self.filler_label['background'] = "#1B1B1B"
+                self.browse_button.pack_forget()
+                self.download_dev_btn.pack_forget()
+                self.download_stable_btn.pack_forget()
+                self.cancel.pack(side="bottom", pady=(20, 0), padx=(184, 184))
+                self.exit.pack_forget()
+                threading.Thread(target=request.download_file(url=download_url, file_name=file_name, progress_bar=self.progress_bar, response_status=self.response_status, stable=stable)).start()
+            if not self.response_status['text'] and not request.cancel_check:
+                threading.Thread(target=self.unzip_file, kwargs={'file_name': file_name, 'stable': stable}).start()
+            elif request.cancel_check or "permission denied" in self.response_status['text'] or 'HTTP' in self.response_status['text']:
+                if not self.response_status['text']:
+                    self.response_status['text'] = f"Download cancelled!"
+                self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
+                self.cancel.pack_forget()
+                self.browse_button.pack(side="top", pady=(20, 0))
+                self.download_dev_btn.pack(side="left", pady=(20, 0), padx=(20, 0))
+                self.download_stable_btn.pack(side="right", pady=(20, 0), padx=(0, 20))
+            elif not file_name or not download_url:
+                self.response_status['text'] = f"Error when downloading, could not fetch download data!"
                 self.response_status['background'] = "firebrick"
 
     def download_stable(self):
-        self.download_zip(specific_url=latest_release_url)
+        active_latest_release_url = latest_release_url
+        if active_download_server == 'FlyByWire CDN':
+            active_latest_release_url = 'https://flybywiresim-packages.nyc3.cdn.digitaloceanspaces.com/stable/A32NX-stable.zip'
+        elif active_download_server == 'FlyByWire non CDN':
+            active_latest_release_url = 'https://flybywiresim-packages.nyc3.digitaloceanspaces.com/stable/A32NX-stable.zip'
+        self.download_zip(specific_url=active_latest_release_url)
 
     def download_dev(self):
-        self.download_zip(specific_url=master_prerelease_url, stable=False)
+        active_master_prerelease_url = master_prerelease_url
+        if active_download_server == 'FlyByWire CDN':
+            active_master_prerelease_url = 'https://flybywiresim-packages.nyc3.cdn.digitaloceanspaces.com/vmaster/A32NX-master.zip'
+        elif active_download_server == 'FlyByWire non CDN':
+            active_master_prerelease_url = 'https://flybywiresim-packages.nyc3.digitaloceanspaces.com/vmaster/A32NX-master.zip'
+        self.download_zip(specific_url=active_master_prerelease_url, stable=False)
 
     def check_installer_update(self):
         try:
@@ -374,6 +388,7 @@ class Application(ttk.Frame):
                 manifest_file = open(manifest_path, 'r')
                 manifest_version = json.load(manifest_file)["package_version"]
                 self.latest_release_version = json.load(request.get(latest_release_url))['tag_name'].strip("v")
+                CreateToolTip(self.download_stable_btn, f"Latest available stable version: {self.latest_release_version}")
                 if manifest_version == self.latest_release_version and self.get_asset_json_path().is_file():
                     with open(self.get_asset_json_path()) as file:
                         asset_data = json.load(file)
@@ -382,15 +397,17 @@ class Application(ttk.Frame):
                             self.filler_label['background'] = "green"
                             return
                         local_asset_id = asset_data['id']
-                        development_github_data = json.load(request.get(master_prerelease_url))
-                        latest_master_asset_id = development_github_data['assets'][0]['id']
-                        self.latest_development_update_timestamp = development_github_data['assets'][0]['updated_at']
+                        self.development_github_data = json.load(request.get(master_prerelease_url))
+                        latest_master_asset_id = self.development_github_data['assets'][0]['id']
+                        self.latest_development_update_timestamp = self.development_github_data['assets'][0]['updated_at']
                         if local_asset_id == latest_master_asset_id:
                             self.filler_label['text'] = "Development version is up to date!"
                             self.filler_label['background'] = "green"
                         else:
                             self.filler_label['text'] = "Development version is out of date, please consider updating!"
                             self.filler_label['background'] = "#e85d04"
+                        date, timestamp = self.latest_development_update_timestamp.split('T')
+                        CreateToolTip(self.download_dev_btn, f"Latest development version was updated at: {date} {timestamp}")
                 else:
                     self.filler_label['text'] = "A32NX version is out of date, please consider updating!"
                     self.filler_label['background'] = "#e85d04"
@@ -424,15 +441,22 @@ class Application(ttk.Frame):
             if stable:
                 latest_master_asset = {'stable': 'True'}
             else:
-                latest_master_asset = json.load(request.get(master_prerelease_url))['assets'][0]
+                try:
+                    latest_master_asset = self.development_github_data['assets'][0]
+                except KeyError:
+                    self.development_github_data = json.load(request.get(master_prerelease_url))
+                    latest_master_asset = self.development_github_data['assets'][0]
             with open(self.get_asset_json_path(), 'w', encoding='utf-8') as f:
                 # Store asset.json in A32NX folder so we can check it later to see if it is still up to date
                 json.dump(latest_master_asset, f, ensure_ascii=False, indent=4)
             self.response_status['background'] = "green"
             self.response_status['text'] = "A32NX correctly installed, everything should be good to go!"
-        except (zipfile.BadZipfile, OSError, KeyError) as e:
+        except (zipfile.BadZipfile, OSError, AttributeError) as e:
             self.response_status['background'] = "firebrick"
             self.response_status['text'] = f"Folder could not be unzipped, failed reason: {repr(e)}!"
+        except (json.decoder.JSONDecodeError, KeyError):
+            self.response_status['background'] = "#e85d04"
+            self.response_status['text'] = f"A32NX correctly installed but could not write version status, Github was not reachable!"
         self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184))
         self.cancel.pack_forget()
         self.pack()
@@ -445,6 +469,12 @@ class Application(ttk.Frame):
         ttk.Style().configure(e.widget['style'], background=self.original_background)
 
 
+def set_download_server(menu, value):
+    global active_download_server
+    active_download_server = value
+    menu.entryconfigure(2, label=f"Active Download server: {active_download_server}")
+
+
 if __name__ == '__main__':
     request = Request()
     root = tkinter.Tk()
@@ -454,6 +484,14 @@ if __name__ == '__main__':
     style.theme_use("clam")
     style.configure(root, background='#1B1B1B')
     style.configure(root, foreground='white')
+    menubar = tkinter.Menu(root)
+    download_server = tkinter.Menu(menubar, tearoff=False)
+    download_server.add_command(label="- Github", command=lambda server='Github': set_download_server(menubar, server))
+    download_server.add_command(label="- FlyByWire CDN", command=lambda server='FlyByWire CDN': set_download_server(menubar, server))
+    download_server.add_command(label="- FlyByWire non CDN", command=lambda server='FlyByWire non CDN': set_download_server(menubar, server))
+    menubar.add_cascade(label="Change Download server", menu=download_server)
+    menubar.add_cascade(label=f"Active Download server: {active_download_server}")
+    root.config(menu=menubar)
     ttk.Style().configure('W1.TButton', background="#6399AE")
     ttk.Style().configure('W2.TButton', background="#00C2CB")
     ttk.Style().configure('W3.TButton', background="#545454")
