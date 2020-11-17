@@ -283,7 +283,7 @@ class Application(ttk.Frame):
             self.exit.pack(side="bottom", pady=(30, 0), padx=(184, 184))
         self.pack(after=self.exit.pack(side="bottom", pady=(20, 0), padx=(184, 184)))
 
-    def get_asset_json_path(self):
+    def get_asset_json_path(self) -> Path:
         return Path(f'{self.destination_folder}\\A32NX\\{asset_json_name}')
 
     def custom_folder_path(self) -> Path:
@@ -370,6 +370,9 @@ class Application(ttk.Frame):
                         file_name = "A32NX.zip"
                     else:
                         self.response_status['text'] = f"Unable to find PR artifact!"
+                        self.response_status['background'] = "firebrick"
+                        self.response_status.update()
+
                 else:
                     download_url = json.load(response)["assets"][0]["browser_download_url"]
                     file_name = download_url.split("/")[-1]
