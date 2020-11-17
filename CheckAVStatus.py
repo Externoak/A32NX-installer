@@ -15,7 +15,7 @@ if post_response.status_code == 200:
     print('Scan started!')
     data = post_response.json()
     if data['response_code'] == 1:
-        timeout = time.time() + 60 * 5
+        timeout = time.time() + 60 * 10
         while True:
             if time.time() > timeout:
                 break
