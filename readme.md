@@ -36,7 +36,7 @@ A: No, the Downloader should automatically detect your Community folder location
 
 **Q: Why is my download speed so slow?**
   
-A: Your download speed from GitHub may vary depending on your connection to their servers, the Downloader will always use all available bandwidth.
+A: Your download speed from GitHub may vary depending on your connection to their servers, the Downloader will always use all available bandwidth. You can also change the download server to our custom FlyByWire servers.
   
 **Q: Downloader warning: "Could not check for updates! Github API rate limit could be exceeded".**
   
