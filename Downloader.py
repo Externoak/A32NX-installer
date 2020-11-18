@@ -363,12 +363,17 @@ class Application(ttk.Frame):
                         if "/flybywiresim/a32nx/actions/runs/" in str(ref.get('href')):
                             reference_run_number = str(ref.get('href')).rsplit('/', 1)[1]
                             break
-                    if reference_run_number:
-                        run_data = json.load(request.get(f'https://api.github.com/repos/flybywiresim/a32nx/actions/runs/{reference_run_number}/artifacts'))
-                        download_artifact_size = run_data["artifacts"][0]["size_in_bytes"]
-                        download_url = run_data["artifacts"][0]["archive_download_url"]
-                        file_name = "A32NX.zip"
-                    else:
+                    try:
+                        if reference_run_number:
+                            run_data = json.load(request.get(f'https://api.github.com/repos/flybywiresim/a32nx/actions/runs/{reference_run_number}/artifacts'))
+                            download_artifact_size = run_data["artifacts"][0]["size_in_bytes"]
+                            download_url = run_data["artifacts"][0]["archive_download_url"]
+                            file_name = "A32NX.zip"
+                        else:
+                            self.response_status['text'] = f"Unable to find PR artifact!"
+                            self.response_status['background'] = "firebrick"
+                            self.response_status.update()
+                    except IndexError:
                         self.response_status['text'] = f"Unable to find PR artifact!"
                         self.response_status['background'] = "firebrick"
                         self.response_status.update()
